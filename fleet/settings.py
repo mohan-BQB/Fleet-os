@@ -32,8 +32,18 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 # needs the deployed frontend URL, and cookies need SameSite=None + Secure to
 # survive that cross-origin round trip - only turned on when DEBUG is off,
 # since Secure cookies don't work over the plain http of local dev.
-CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=["http://localhost:5173"])
-CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])
+def _strip_trailing_slash(origins):
+    # Browsers send Origin with no trailing slash; a pasted-in URL often has
+    # one, which would otherwise silently fail to match.
+    return [o.rstrip("/") for o in origins]
+
+
+CSRF_TRUSTED_ORIGINS = _strip_trailing_slash(
+    env.list("CSRF_TRUSTED_ORIGINS", default=["http://localhost:5173"])
+)
+CORS_ALLOWED_ORIGINS = _strip_trailing_slash(
+    env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])
+)
 CORS_ALLOW_CREDENTIALS = True
 
 if not DEBUG:
