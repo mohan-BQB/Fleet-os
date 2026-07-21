@@ -7,15 +7,13 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
 // Cross-site, JS can't read the csrftoken cookie Django set for its own
 // domain - so the token comes back in the /auth/csrf/ response body instead
-// (see core/views.CsrfView) and gets cached here for reuse.
-let csrfToken: string | null = null;
-
-async function ensureCsrfToken(): Promise<string | null> {
-  if (csrfToken) return csrfToken;
+// (see core/views.CsrfView). Fetched fresh before every mutation rather than
+// cached: Django rotates the token on login/logout, so a cached value from
+// before login silently 403s every request after.
+async function fetchCsrfToken(): Promise<string | null> {
   const res = await fetch(`${API_BASE}/auth/csrf/`, { credentials: 'include' });
   const data = await res.json();
-  csrfToken = data.csrfToken ?? null;
-  return csrfToken;
+  return data.csrfToken ?? null;
 }
 
 export class ApiError extends Error {
@@ -31,7 +29,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   const headers = new Headers(options.headers);
 
   if (!SAFE_METHODS.has(method)) {
-    const token = await ensureCsrfToken();
+    const token = await fetchCsrfToken();
     if (token) headers.set('X-CSRFToken', token);
   }
   if (options.body && !headers.has('Content-Type')) {

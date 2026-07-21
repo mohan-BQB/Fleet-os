@@ -3,6 +3,10 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Vehicles from './pages/Vehicles';
+import Drivers from './pages/Drivers';
+import Compliance from './pages/Compliance';
+import Layout from './components/Layout';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -19,10 +23,15 @@ export default function App() {
         path="/"
         element={
           <RequireAuth>
-            <Dashboard />
+            <Layout />
           </RequireAuth>
         }
-      />
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="vehicles" element={<Vehicles />} />
+        <Route path="drivers" element={<Drivers />} />
+        <Route path="compliance" element={<Compliance />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
