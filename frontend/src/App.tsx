@@ -6,6 +6,9 @@ import Dashboard from './pages/Dashboard';
 import Vehicles from './pages/Vehicles';
 import Drivers from './pages/Drivers';
 import Compliance from './pages/Compliance';
+import TripSheets from './pages/TripSheets';
+import FuelLog from './pages/FuelLog';
+import Economics from './pages/Economics';
 import Layout from './components/Layout';
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -31,6 +34,9 @@ export default function App() {
         <Route path="vehicles" element={<Vehicles />} />
         <Route path="drivers" element={<Drivers />} />
         <Route path="compliance" element={<Compliance />} />
+        <Route path="trip-sheets" element={<TripSheets />} />
+        <Route path="fuel-log" element={<FuelLog />} />
+        <Route path="economics" element={<Economics />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

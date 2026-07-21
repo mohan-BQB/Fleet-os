@@ -65,6 +65,20 @@ export const ManualIcon = ({ className }: IconProps) => (
   </svg>
 );
 
+export const RouteIcon = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <rect x="3" y="4" width="18" height="17" rx="2" />
+    <path d="M7 9h10M7 13h10M7 17h6" />
+  </svg>
+);
+
+export const FuelIcon = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <path d="M5 21V8l6-5 6 5v13" />
+    <path d="M9 21v-6h4v6M14 10h3a2 2 0 0 1 2 2v3a1.5 1.5 0 0 0 3 0v-4l-2-3" />
+  </svg>
+);
+
 export const BellIcon = ({ className }: IconProps) => (
   <svg {...base} className={className}>
     <path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 13 6 9Z" />

@@ -1,6 +1,6 @@
 import { apiFetch } from './client';
 import type {
-  ComplianceDocument, DashboardPnL, DocumentInput, Driver, DriverInput, Vehicle, VehicleInput,
+  ComplianceDocument, DocumentInput, Driver, DriverInput, Vehicle, VehicleInput,
 } from './types';
 
 export const listVehicles = () => apiFetch<Vehicle[]>('/vehicles/');
@@ -29,6 +29,3 @@ export const updateComplianceDocument = (id: string, input: DocumentInput) =>
   apiFetch<ComplianceDocument>(`/compliance/documents/${id}/`, { method: 'PATCH', body: JSON.stringify(input) });
 export const retireComplianceDocument = (id: string) =>
   apiFetch<null>(`/compliance/documents/${id}/`, { method: 'DELETE' });
-
-export const getDashboardPnL = (start: string, end: string) =>
-  apiFetch<DashboardPnL>(`/economics/pnl/dashboard/?start=${start}&end=${end}`);

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getDashboardPnL, listComplianceAlerts, listComplianceDocuments, listDrivers, listVehicles } from '../api/fleet';
+import { listComplianceAlerts, listComplianceDocuments, listDrivers, listVehicles } from '../api/fleet';
+import { getDashboardPnL } from '../api/economics';
 import type { ComplianceDocument, DashboardPnL, Driver, Vehicle } from '../api/types';
 import {
   AlertIcon, BellIcon, ClockIcon, GpsIcon, ManualIcon, ProfitIcon, TruckIcon, DriverIcon,

@@ -82,6 +82,72 @@ export type DocumentInput = Omit<
   ComplianceDocument, 'id' | 'holder_display' | 'is_expired' | 'is_due' | 'status'
 >;
 
+export interface TripLeg {
+  id: string;
+  trip_sheet: string;
+  sequence: number;
+  from_place: string;
+  to_place: string;
+  consignor: string;
+  lr_number: string;
+  freight_amount: string;
+  remarks: string;
+}
+
+export type TripLegInput = Omit<TripLeg, 'id'>;
+
+export interface TripSheet {
+  id: string;
+  vehicle: string;
+  driver: string;
+  date: string;
+  opening_meter: string;
+  closing_meter: string | null;
+  status: 'open' | 'closed' | 'cancelled';
+  remarks: string;
+  legs: TripLeg[];
+  distance_covered: string | null;
+  total_freight: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TripSheetInput = {
+  vehicle: string; driver: string; date: string; opening_meter: string; remarks: string;
+};
+
+export interface FuelLog {
+  id: string;
+  vehicle: string;
+  trip_sheet: string | null;
+  date: string;
+  litres: string;
+  rate_per_litre: string;
+  amount: string;
+  odometer: string | null;
+  fuel_station: string;
+  is_full_tank: boolean;
+}
+
+export type FuelLogInput = Omit<FuelLog, 'id' | 'amount'>;
+
+export const EXPENSE_CATEGORIES = [
+  'maintenance', 'tyres', 'toll', 'permit_fee', 'insurance_premium', 'spare_parts', 'other',
+] as const;
+
+export interface Expense {
+  id: string;
+  vehicle: string | null;
+  category: string;
+  date: string;
+  amount: string;
+  vendor: string;
+  notes: string;
+  created_at: string;
+}
+
+export type ExpenseInput = Omit<Expense, 'id' | 'created_at'>;
+
 export interface VehiclePnL {
   vehicle_id: string;
   registration_number: string;
