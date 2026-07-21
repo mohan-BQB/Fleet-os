@@ -79,6 +79,13 @@ export const FuelIcon = ({ className }: IconProps) => (
   </svg>
 );
 
+export const WalletIcon = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v3" />
+    <path d="M3 7v11a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1h-4a2.5 2.5 0 0 1 0-5H21" />
+  </svg>
+);
+
 export const BellIcon = ({ className }: IconProps) => (
   <svg {...base} className={className}>
     <path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 13 6 9Z" />

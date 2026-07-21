@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ComplianceIcon, DriverIcon, FuelIcon, ProfitIcon, RouteIcon, TruckIcon } from './icons';
+import { ComplianceIcon, DriverIcon, FuelIcon, ProfitIcon, RouteIcon, TruckIcon, WalletIcon } from './icons';
 import './Layout.css';
 
 export default function Layout() {
@@ -39,6 +39,9 @@ export default function Layout() {
           </NavLink>
           <NavLink to="/economics" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <ProfitIcon />Economics
+          </NavLink>
+          <NavLink to="/driver-ledger" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+            <WalletIcon />Driver Ledger
           </NavLink>
         </div>
 

@@ -1,5 +1,8 @@
 import { apiFetch } from './client';
-import type { FuelLog, FuelLogInput, TripLeg, TripLegInput, TripSheet, TripSheetInput } from './types';
+import type {
+  DriverLedgerEntry, DriverLedgerEntryInput, FuelLog, FuelLogInput,
+  TripLeg, TripLegInput, TripSheet, TripSheetInput,
+} from './types';
 
 export const listTripSheets = () => apiFetch<TripSheet[]>('/operations/trip-sheets/');
 export const createTripSheet = (input: TripSheetInput) =>
@@ -25,3 +28,11 @@ export const updateFuelLog = (id: string, input: FuelLogInput) =>
   apiFetch<FuelLog>(`/operations/fuel-logs/${id}/`, { method: 'PATCH', body: JSON.stringify(input) });
 export const retireFuelLog = (id: string) =>
   apiFetch<null>(`/operations/fuel-logs/${id}/`, { method: 'DELETE' });
+
+export const listLedgerEntries = () => apiFetch<DriverLedgerEntry[]>('/operations/ledger-entries/');
+export const createLedgerEntry = (input: DriverLedgerEntryInput) =>
+  apiFetch<DriverLedgerEntry>('/operations/ledger-entries/', { method: 'POST', body: JSON.stringify(input) });
+export const updateLedgerEntry = (id: string, input: DriverLedgerEntryInput) =>
+  apiFetch<DriverLedgerEntry>(`/operations/ledger-entries/${id}/`, { method: 'PATCH', body: JSON.stringify(input) });
+export const retireLedgerEntry = (id: string) =>
+  apiFetch<null>(`/operations/ledger-entries/${id}/`, { method: 'DELETE' });

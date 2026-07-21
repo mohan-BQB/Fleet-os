@@ -82,6 +82,20 @@ export type DocumentInput = Omit<
   ComplianceDocument, 'id' | 'holder_display' | 'is_expired' | 'is_due' | 'status'
 >;
 
+export const LEDGER_ENTRY_TYPES = ['advance', 'wage', 'bonus', 'deduction'] as const;
+
+export interface DriverLedgerEntry {
+  id: string;
+  driver: string;
+  trip_sheet: string | null;
+  date: string;
+  entry_type: string;
+  amount: string;
+  remarks: string;
+}
+
+export type DriverLedgerEntryInput = Omit<DriverLedgerEntry, 'id'>;
+
 export interface TripLeg {
   id: string;
   trip_sheet: string;
