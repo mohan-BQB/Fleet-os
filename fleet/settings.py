@@ -111,6 +111,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fleet.wsgi.application'
 
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": ["core.authentication.CsrfExemptSessionAuthentication"],
+}
+
 
 # 4. PostgreSQL. DATABASE_URL (Render sets this automatically) wins; falls
 # back to the local Homebrew instance for local dev.
