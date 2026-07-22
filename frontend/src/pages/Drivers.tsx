@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
 import { DriverIcon } from '../components/icons';
-import { createDriver, listDrivers, retireDriver, updateDriver } from '../api/fleet';
+import { createDriver, listDrivers, retireDriver, updateDriver, type DriverFiles } from '../api/fleet';
 import { ApiError } from '../api/client';
 import {
   EMPLOYMENT_TYPES, LICENCE_CLASSES, WAGE_BASES, type Driver, type DriverInput,
@@ -18,6 +18,19 @@ const BLANK: DriverInput = {
   licence_valid_till: null, badge_number: '', badge_valid_till: null,
   employment_type: 'permanent', wage_basis: 'monthly', wage_amount: null,
 };
+
+// Explicit field-by-field copy, not a spread of the full record: `initial`
+// carries photo/licence_copy/id_proof as URL strings, and blindly spreading
+// it into form state would send those strings alongside a newly-picked File
+// under the same multipart field name when editing.
+function toDriverInput(d: Driver): DriverInput {
+  return {
+    code: d.code, name: d.name, mobile: d.mobile, licence_number: d.licence_number,
+    licence_class: d.licence_class, licence_valid_till: d.licence_valid_till,
+    badge_number: d.badge_number, badge_valid_till: d.badge_valid_till,
+    employment_type: d.employment_type, wage_basis: d.wage_basis, wage_amount: d.wage_amount,
+  };
+}
 
 export default function Drivers() {
   const [drivers, setDrivers] = useState<Driver[] | null>(null);
@@ -116,12 +129,16 @@ export default function Drivers() {
 function DriverForm({
   initial, onClose, onSaved,
 }: { initial: Driver | null; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<DriverInput>(initial ?? BLANK);
+  const [form, setForm] = useState<DriverInput>(initial ? toDriverInput(initial) : BLANK);
+  const [files, setFiles] = useState<DriverFiles>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   function set<K extends keyof DriverInput>(key: K, value: DriverInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+  function setFile(key: keyof DriverFiles, value: File | null) {
+    setFiles((f) => ({ ...f, [key]: value }));
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -129,8 +146,8 @@ function DriverForm({
     setSaving(true);
     setError(null);
     try {
-      if (initial) await updateDriver(initial.id, form);
-      else await createDriver(form);
+      if (initial) await updateDriver(initial.id, form, files);
+      else await createDriver(form, files);
       onSaved();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not save driver.');
@@ -197,6 +214,28 @@ function DriverForm({
             <label htmlFor="wage_amount">Wage amount (₹)</label>
             <input id="wage_amount" type="number" step="0.01" value={form.wage_amount ?? ''}
               onChange={(e) => set('wage_amount', e.target.value || null)} />
+          </div>
+
+          <div className="field">
+            <label htmlFor="photo">Photo</label>
+            <input id="photo" type="file" accept="image/*" onChange={(e) => setFile('photo', e.target.files?.[0] ?? null)} />
+            {initial?.photo && !files.photo && (
+              <a href={initial.photo} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--accent)' }}>View current</a>
+            )}
+          </div>
+          <div className="field">
+            <label htmlFor="licence_copy">Licence copy</label>
+            <input id="licence_copy" type="file" accept="application/pdf,image/*" onChange={(e) => setFile('licence_copy', e.target.files?.[0] ?? null)} />
+            {initial?.licence_copy && !files.licence_copy && (
+              <a href={initial.licence_copy} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--accent)' }}>View current</a>
+            )}
+          </div>
+          <div className="field span-2">
+            <label htmlFor="id_proof">ID proof</label>
+            <input id="id_proof" type="file" accept="application/pdf,image/*" onChange={(e) => setFile('id_proof', e.target.files?.[0] ?? null)} />
+            {initial?.id_proof && !files.id_proof && (
+              <a href={initial.id_proof} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--accent)' }}>View current</a>
+            )}
           </div>
         </div>
 

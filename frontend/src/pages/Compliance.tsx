@@ -7,6 +7,18 @@ import {
 import { ApiError } from '../api/client';
 import { DOCUMENT_TYPES, type ComplianceDocument, type DocumentInput, type Driver, type Vehicle } from '../api/types';
 
+// Explicit field-by-field copy, not a spread of the full record: `initial`
+// carries `file` as a URL string, and blindly spreading it into form state
+// would send that string alongside the real File object under the same
+// multipart field name when editing.
+function toDocumentInput(doc: ComplianceDocument): DocumentInput {
+  return {
+    vehicle: doc.vehicle, driver: doc.driver, doc_type: doc.doc_type, doc_number: doc.doc_number,
+    issue_date: doc.issue_date, valid_till: doc.valid_till,
+    reminder_days_before: doc.reminder_days_before, notes: doc.notes,
+  };
+}
+
 const DATE_FMT = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 function humanize(value: string) {
@@ -66,6 +78,7 @@ export default function Compliance() {
                   <th>Holder</th>
                   <th>Valid till</th>
                   <th>Status</th>
+                  <th>File</th>
                   <th></th>
                 </tr>
               </thead>
@@ -79,6 +92,11 @@ export default function Compliance() {
                       {doc.is_expired ? <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Expired</span>
                         : doc.is_due ? <span className="pill svc">Due soon</span>
                         : <span className="pill on">Valid</span>}
+                    </td>
+                    <td>
+                      {doc.file
+                        ? <a href={doc.file} target="_blank" rel="noreferrer" className="link-btn">View</a>
+                        : <span style={{ color: 'var(--ink-soft)' }}>—</span>}
                     </td>
                     <td>
                       <div className="row-actions">
@@ -119,7 +137,8 @@ function DocumentForm({
   const [holderType, setHolderType] = useState<'vehicle' | 'driver'>(
     initial?.driver ? 'driver' : 'vehicle'
   );
-  const [form, setForm] = useState<DocumentInput>(initial ?? BLANK);
+  const [form, setForm] = useState<DocumentInput>(initial ? toDocumentInput(initial) : BLANK);
+  const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -142,8 +161,8 @@ function DocumentForm({
     setSaving(true);
     setError(null);
     try {
-      if (initial) await updateComplianceDocument(initial.id, form);
-      else await createComplianceDocument(form);
+      if (initial) await updateComplianceDocument(initial.id, form, file);
+      else await createComplianceDocument(form, file);
       onSaved();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not save document.');
@@ -218,6 +237,17 @@ function DocumentForm({
           <div className="field">
             <label htmlFor="notes">Notes</label>
             <input id="notes" value={form.notes} onChange={(e) => set('notes', e.target.value)} />
+          </div>
+
+          <div className="field span-2">
+            <label htmlFor="file">Document file (photo/scan/PDF)</label>
+            <input id="file" type="file" accept="application/pdf,image/*"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+            {initial?.file && !file && (
+              <a href={initial.file} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--accent)' }}>
+                View current file
+              </a>
+            )}
           </div>
         </div>
 

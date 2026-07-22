@@ -11,6 +11,6 @@ class DriverSerializer(serializers.ModelSerializer):
             "licence_number", "licence_class", "licence_valid_till",
             "badge_number", "badge_valid_till", "date_of_joining",
             "employment_type", "wage_basis", "wage_amount",
-            "has_app_login", "status",
+            "has_app_login", "status", "photo", "licence_copy", "id_proof",
         ]
         read_only_fields = ["id", "status"]

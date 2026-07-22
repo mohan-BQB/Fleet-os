@@ -7,6 +7,25 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
 // it (see core.authentication.CsrfExemptSessionAuthentication) since
 // CORS_ALLOWED_ORIGINS already restricts writes to this one trusted origin.
 
+// Builds multipart form data for endpoints with a file field: plain values
+// become form fields, `null`/`undefined` are skipped entirely (so a PATCH
+// without a new file leaves the existing one untouched), and File objects
+// are attached as-is.
+export function toFormData(
+  fields: Record<string, string | number | boolean | null | undefined>,
+  files: Record<string, File | null | undefined> = {},
+): FormData {
+  const fd = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === null || value === undefined) continue;
+    fd.append(key, String(value));
+  }
+  for (const [key, file] of Object.entries(files)) {
+    if (file) fd.append(key, file);
+  }
+  return fd;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -17,7 +36,10 @@ export class ApiError extends Error {
 
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
-  if (options.body && !headers.has('Content-Type')) {
+  // FormData (file uploads) must NOT get a manual Content-Type - the browser
+  // sets one itself with the correct multipart boundary.
+  const isFormData = options.body instanceof FormData;
+  if (options.body && !isFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 

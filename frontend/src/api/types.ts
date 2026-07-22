@@ -53,9 +53,12 @@ export interface Driver {
   wage_basis: string;
   wage_amount: string | null;
   status: 'active' | 'on_leave' | 'relieved';
+  photo: string | null;
+  licence_copy: string | null;
+  id_proof: string | null;
 }
 
-export type DriverInput = Omit<Driver, 'id' | 'status'>;
+export type DriverInput = Omit<Driver, 'id' | 'status' | 'photo' | 'licence_copy' | 'id_proof'>;
 
 export const DOCUMENT_TYPES = [
   'rc', 'insurance', 'permit', 'national_permit', 'fitness', 'puc', 'road_tax',
@@ -73,13 +76,14 @@ export interface ComplianceDocument {
   valid_till: string | null;
   reminder_days_before: number;
   notes: string;
+  file: string | null;
   is_expired: boolean;
   is_due: boolean;
   status: string;
 }
 
 export type DocumentInput = Omit<
-  ComplianceDocument, 'id' | 'holder_display' | 'is_expired' | 'is_due' | 'status'
+  ComplianceDocument, 'id' | 'holder_display' | 'is_expired' | 'is_due' | 'status' | 'file'
 >;
 
 export const LEDGER_ENTRY_TYPES = ['advance', 'wage', 'bonus', 'deduction'] as const;
