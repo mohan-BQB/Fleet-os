@@ -192,3 +192,12 @@ tbody tr:last-child td { border-bottom: none; }
   .stat-row { grid-template-columns: repeat(2, 1fr); }
   .split-row { grid-template-columns: 1fr; }
 }
+
+@media print {
+  .rail, .no-print { display: none !important; }
+  .app { display: block; }
+  .table-card, .table-scroll { box-shadow: none; overflow: visible; border: none; }
+  table { min-width: 0; }
+  body { background: #fff; }
+  .page-head { border-bottom: 1px solid #000; }
+}

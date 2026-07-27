@@ -10,6 +10,7 @@ import TripSheets from './pages/TripSheets';
 import FuelLog from './pages/FuelLog';
 import Economics from './pages/Economics';
 import DriverLedger from './pages/DriverLedger';
+import Reports from './pages/Reports';
 import Layout from './components/Layout';
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="fuel-log" element={<FuelLog />} />
         <Route path="economics" element={<Economics />} />
         <Route path="driver-ledger" element={<DriverLedger />} />
+        <Route path="reports" element={<Reports />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

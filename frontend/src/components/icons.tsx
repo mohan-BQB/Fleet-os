@@ -86,6 +86,28 @@ export const WalletIcon = ({ className }: IconProps) => (
   </svg>
 );
 
+export const ChartIcon = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <rect x="4" y="4" width="16" height="16" rx="2" />
+    <path d="M8 16v-4M12 16V8M16 16v-6" />
+  </svg>
+);
+
+export const DownloadIcon = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <path d="M12 3v12M7 10l5 5 5-5" />
+    <path d="M4 19h16" />
+  </svg>
+);
+
+export const PrinterIcon = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <path d="M6 9V3h12v6" />
+    <rect x="4" y="9" width="16" height="8" rx="1.5" />
+    <path d="M6 15h12v6H6z" />
+  </svg>
+);
+
 export const BellIcon = ({ className }: IconProps) => (
   <svg {...base} className={className}>
     <path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 13 6 9Z" />
