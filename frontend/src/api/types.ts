@@ -219,7 +219,9 @@ export interface Tyre {
   status: 'fitted' | 'spare' | 'retired';
 }
 
-export type TyreInput = Omit<Tyre, 'id' | 'status'>;
+// Status is writable for fitted/spare only - retiring goes through the
+// dedicated retire action (DELETE), which the backend enforces.
+export type TyreInput = Omit<Tyre, 'id' | 'status'> & { status: 'fitted' | 'spare' };
 
 export const TYRE_SERVICE_TYPES = [
   'alignment', 'rotation', 'balancing', 'puncture_repair', 'replacement', 'inspection',

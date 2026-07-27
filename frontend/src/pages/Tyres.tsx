@@ -59,7 +59,7 @@ function distanceRun(tyre: Tyre, vehicle: Vehicle | undefined): number | null {
 const BLANK_TYRE: TyreInput = {
   vehicle: '', position: '', brand: '', size: '', serial_number: '',
   fitted_date: null, purchase_date: null, purchase_price: null,
-  odometer_at_fitting: null, notes: '',
+  odometer_at_fitting: null, notes: '', status: 'fitted',
 };
 
 const BLANK_SERVICE: TyreServiceInput = {
@@ -318,6 +318,7 @@ function toTyreInput(t: Tyre): TyreInput {
     vehicle: t.vehicle, position: t.position, brand: t.brand, size: t.size,
     serial_number: t.serial_number, fitted_date: t.fitted_date, purchase_date: t.purchase_date,
     purchase_price: t.purchase_price, odometer_at_fitting: t.odometer_at_fitting, notes: t.notes,
+    status: t.status === 'retired' ? 'fitted' : t.status,
   };
 }
 
@@ -328,7 +329,10 @@ function TyreForm({
   onClose: () => void; onSaved: () => void;
 }) {
   const [form, setForm] = useState<TyreInput>(
-    initial ? toTyreInput(initial) : { ...BLANK_TYRE, vehicle: vehicle.id, position: prefillPosition ?? '' },
+    initial ? toTyreInput(initial) : {
+      ...BLANK_TYRE, vehicle: vehicle.id, position: prefillPosition ?? '',
+      status: prefillPosition?.startsWith('Spare') ? 'spare' : 'fitted',
+    },
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -381,6 +385,13 @@ function TyreForm({
           <div className="field">
             <label htmlFor="serial_number">Serial number</label>
             <input id="serial_number" value={form.serial_number} onChange={(e) => set('serial_number', e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="tyre_status">Status</label>
+            <select id="tyre_status" value={form.status} onChange={(e) => set('status', e.target.value as 'fitted' | 'spare')}>
+              <option value="fitted">Fitted (on a road position)</option>
+              <option value="spare">Spare (in stock)</option>
+            </select>
           </div>
           <div className="field">
             <label htmlFor="fitted_date">Fitted date</label>
