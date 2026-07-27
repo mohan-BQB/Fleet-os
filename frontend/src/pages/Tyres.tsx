@@ -420,6 +420,9 @@ function TyreForm({
 }
 
 const BULK_SERVICE_TYPES = new Set(['rotation', 'balancing']);
+// The tyre is already off or accessible during these - the natural,
+// no-extra-effort moment to catch uneven wear before it becomes a blowout.
+const TREAD_CHECK_TYPES = new Set(['rotation', 'balancing', 'inspection']);
 
 function TyreServiceForm({
   vehicle, tyres, onClose, onSaved,
@@ -534,6 +537,16 @@ function TyreServiceForm({
             <input id="tread_depth_in" type="number" step="0.01" value={form.tread_depth_in ?? ''}
               onChange={(e) => set('tread_depth_in', e.target.value || null)} />
           </div>
+
+          {TREAD_CHECK_TYPES.has(form.service_type) && !form.tread_depth_in && (
+            <div className="field span-2" style={{
+              background: 'var(--warn-soft)', color: 'var(--warn)', borderRadius: 8,
+              padding: '8px 10px', fontSize: 12,
+            }}>
+              The tyre{isBulk ? 's are' : ' is'} already accessible for {humanize(form.service_type).toLowerCase()} —
+              worth recording a tread depth reading now while you're at it.
+            </div>
+          )}
 
           {isBulk && (
             <div className="field span-2">
