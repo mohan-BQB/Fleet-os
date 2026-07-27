@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
+import ComplianceModal from '../components/ComplianceModal';
 import { DriverIcon } from '../components/icons';
 import { createDriver, listDrivers, retireDriver, updateDriver, type DriverFiles } from '../api/fleet';
 import { ApiError } from '../api/client';
 import {
-  EMPLOYMENT_TYPES, LICENCE_CLASSES, WAGE_BASES, type Driver, type DriverInput,
+  DRIVER_DOC_TYPES, EMPLOYMENT_TYPES, LICENCE_CLASSES, WAGE_BASES, type Driver, type DriverInput,
 } from '../api/types';
 
 const DATE_FMT = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -37,6 +38,7 @@ export default function Drivers() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Driver | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [complianceDriver, setComplianceDriver] = useState<Driver | null>(null);
 
   function load() {
     listDrivers().then(setDrivers).catch((err) => setError(err.message));
@@ -98,6 +100,7 @@ export default function Drivers() {
                     <td><span className={`pill ${d.status === 'active' ? 'on' : d.status === 'on_leave' ? 'svc' : 'off'}`}>{humanize(d.status)}</span></td>
                     <td>
                       <div className="row-actions">
+                        <button className="link-btn" onClick={() => setComplianceDriver(d)}>Compliance</button>
                         <button className="link-btn" onClick={() => { setEditing(d); setShowForm(true); }}>Edit</button>
                         {d.status === 'active' && (
                           <button className="link-btn danger" onClick={() => handleRetire(d)}>Relieve</button>
@@ -120,6 +123,15 @@ export default function Drivers() {
           initial={editing}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); load(); }}
+        />
+      )}
+      {complianceDriver && (
+        <ComplianceModal
+          holderType="driver"
+          holderId={complianceDriver.id}
+          holderLabel={complianceDriver.name}
+          docTypes={DRIVER_DOC_TYPES}
+          onClose={() => setComplianceDriver(null)}
         />
       )}
     </>

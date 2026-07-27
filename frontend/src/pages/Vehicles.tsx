@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
+import ComplianceModal from '../components/ComplianceModal';
 import { TruckIcon } from '../components/icons';
 import { createVehicle, listVehicles, retireVehicle, updateVehicle } from '../api/fleet';
 import { ApiError } from '../api/client';
 import {
-  AXLE_LAYOUTS, FUEL_TYPES, TRACKING_MODES, VEHICLE_CATEGORIES, VEHICLE_USAGE,
+  AXLE_LAYOUTS, FUEL_TYPES, TRACKING_MODES, VEHICLE_CATEGORIES, VEHICLE_DOC_TYPES, VEHICLE_USAGE,
   type Vehicle, type VehicleInput,
 } from '../api/types';
 
@@ -26,6 +27,7 @@ export default function Vehicles() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Vehicle | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [complianceVehicle, setComplianceVehicle] = useState<Vehicle | null>(null);
 
   function load() {
     listVehicles().then(setVehicles).catch((err) => setError(err.message));
@@ -86,6 +88,7 @@ export default function Vehicles() {
                     <td><span className={`pill ${v.status === 'active' ? 'on' : v.status === 'in_service' ? 'svc' : 'off'}`}>{humanize(v.status)}</span></td>
                     <td>
                       <div className="row-actions">
+                        <button className="link-btn" onClick={() => setComplianceVehicle(v)}>Compliance</button>
                         <button className="link-btn" onClick={() => { setEditing(v); setShowForm(true); }}>Edit</button>
                         {v.status === 'active' && (
                           <button className="link-btn danger" onClick={() => handleRetire(v)}>Retire</button>
@@ -108,6 +111,15 @@ export default function Vehicles() {
           initial={editing}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); load(); }}
+        />
+      )}
+      {complianceVehicle && (
+        <ComplianceModal
+          holderType="vehicle"
+          holderId={complianceVehicle.id}
+          holderLabel={complianceVehicle.registration_number}
+          docTypes={VEHICLE_DOC_TYPES}
+          onClose={() => setComplianceVehicle(null)}
         />
       )}
     </>

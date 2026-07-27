@@ -73,10 +73,13 @@ export interface Driver {
 
 export type DriverInput = Omit<Driver, 'id' | 'status' | 'photo' | 'licence_copy' | 'id_proof'>;
 
-export const DOCUMENT_TYPES = [
-  'rc', 'insurance', 'permit', 'national_permit', 'fitness', 'puc', 'road_tax',
+export const VEHICLE_DOC_TYPES = [
+  'rc', 'insurance', 'permit', 'national_permit', 'fitness', 'puc', 'road_tax', 'other',
+] as const;
+export const DRIVER_DOC_TYPES = [
   'licence', 'badge', 'police_verification', 'medical_certificate', 'other',
 ] as const;
+export const DOCUMENT_TYPES = [...VEHICLE_DOC_TYPES.slice(0, -1), ...DRIVER_DOC_TYPES] as const;
 
 export interface ComplianceDocument {
   id: string;

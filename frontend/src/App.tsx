@@ -5,7 +5,6 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Vehicles from './pages/Vehicles';
 import Drivers from './pages/Drivers';
-import Compliance from './pages/Compliance';
 import TripSheets from './pages/TripSheets';
 import FuelLog from './pages/FuelLog';
 import Tyres from './pages/Tyres';
@@ -37,7 +36,6 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="vehicles" element={<Vehicles />} />
         <Route path="drivers" element={<Drivers />} />
-        <Route path="compliance" element={<Compliance />} />
         <Route path="trip-sheets" element={<TripSheets />} />
         <Route path="fuel-log" element={<FuelLog />} />
         <Route path="tyres" element={<Tyres />} />
