@@ -465,15 +465,16 @@ function TyreServiceForm({
             <input id="tread_depth_in" type="number" step="0.01" value={form.tread_depth_in ?? ''}
               onChange={(e) => set('tread_depth_in', e.target.value || null)} />
           </div>
-          {form.tyre && (
-            <div className="field">
-              <label htmlFor="new_position">
-                Moved to position (currently: {tyres.find((t) => t.id === form.tyre)?.position || 'unassigned'})
-              </label>
-              <input id="new_position" placeholder="e.g. Rear Axle 1 Left Outer" value={form.new_position}
-                onChange={(e) => set('new_position', e.target.value)} />
-            </div>
-          )}
+          <div className="field span-2">
+            <label htmlFor="new_position">
+              {form.tyre
+                ? `Moved to position (currently: ${tyres.find((t) => t.id === form.tyre)?.position || 'unassigned'})`
+                : 'Moved to position'}
+            </label>
+            <input id="new_position" disabled={!form.tyre}
+              placeholder={form.tyre ? 'e.g. Rear Axle 1 Left Outer' : 'Select a specific tyre above first'}
+              value={form.new_position} onChange={(e) => set('new_position', e.target.value)} />
+          </div>
           <div className="field span-2">
             <label htmlFor="vendor">Vendor</label>
             <input id="vendor" value={form.vendor} onChange={(e) => set('vendor', e.target.value)} />
