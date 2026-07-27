@@ -85,6 +85,7 @@ export default function Tyres() {
   const [showTyreForm, setShowTyreForm] = useState(false);
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [prefillPosition, setPrefillPosition] = useState<string | null>(null);
+  const [historyTyre, setHistoryTyre] = useState<Tyre | null>(null);
 
   function load() {
     listTyres().then(setTyres).catch((err) => setError(err.message));
@@ -161,7 +162,6 @@ export default function Tyres() {
             tyres={vehicleTyres}
             services={vehicleServices}
             onAddAt={(position) => { setEditingTyre(null); setPrefillPosition(position); setShowTyreForm(true); }}
-            onMoved={load}
           />
         )}
 
@@ -192,6 +192,7 @@ export default function Tyres() {
                       </td>
                       <td>
                         <div className="row-actions">
+                          <button className="link-btn" onClick={() => setHistoryTyre(t)}>History</button>
                           <button className="link-btn" onClick={() => { setEditingTyre(t); setPrefillPosition(null); setShowTyreForm(true); }}>Edit</button>
                           {t.status !== 'retired' && <button className="link-btn danger" onClick={() => handleRetireTyre(t)}>Retire</button>}
                         </div>
@@ -244,12 +245,19 @@ export default function Tyres() {
           onSaved={() => { setShowTyreForm(false); load(); }}
         />
       )}
-      {showServiceForm && (
+      {showServiceForm && vehicle && (
         <TyreServiceForm
-          vehicleId={vehicleId}
+          vehicle={vehicle}
           tyres={vehicleTyres}
           onClose={() => setShowServiceForm(false)}
           onSaved={() => { setShowServiceForm(false); load(); }}
+        />
+      )}
+      {historyTyre && (
+        <TyreHistory
+          tyre={historyTyre}
+          services={services.filter((s) => s.tyre === historyTyre.id)}
+          onClose={() => setHistoryTyre(null)}
         />
       )}
     </>
@@ -257,87 +265,27 @@ export default function Tyres() {
 }
 
 function PositionMap({
-  vehicle, tyres, services, onAddAt, onMoved,
-}: {
-  vehicle: Vehicle; tyres: Tyre[]; services: TyreService[];
-  onAddAt: (position: string) => void; onMoved: () => void;
-}) {
+  vehicle, tyres, services, onAddAt,
+}: { vehicle: Vehicle; tyres: Tyre[]; services: TyreService[]; onAddAt: (position: string) => void }) {
   const positions = useMemo(
     () => generatePositions(vehicle.number_of_tyres, vehicle.spare_tyres),
     [vehicle.number_of_tyres, vehicle.spare_tyres],
   );
   const byPosition = new Map(tyres.filter((t) => t.status !== 'retired' && t.position).map((t) => [t.position, t]));
 
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOverPos, setDragOverPos] = useState<string | null>(null);
-  const [moving, setMoving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function logMove(tyre: Tyre, newPosition: string) {
-    await createTyreService({
-      vehicle: vehicle.id, tyre: tyre.id, service_type: 'rotation',
-      date: new Date().toISOString().slice(0, 10), odometer: vehicle.current_meter,
-      tread_depth_in: null, new_position: newPosition, vendor: '', notes: 'Moved via drag-and-drop',
-    });
-  }
-
-  async function handleDrop(targetPos: string) {
-    setDragOverPos(null);
-    const sourceTyre = tyres.find((t) => t.id === draggingId);
-    setDraggingId(null);
-    if (!sourceTyre || sourceTyre.position === targetPos) return;
-
-    setMoving(true);
-    setError(null);
-    try {
-      const targetTyre = byPosition.get(targetPos);
-      if (targetTyre) {
-        // Swap: each tyre takes the other's position.
-        await logMove(sourceTyre, targetPos);
-        await logMove(targetTyre, sourceTyre.position);
-      } else {
-        await logMove(sourceTyre, targetPos);
-      }
-      onMoved();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not move tyre.');
-    } finally {
-      setMoving(false);
-    }
-  }
-
   return (
     <section className="table-card" style={{ padding: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
-        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>Position map</h3>
-        <span style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>Drag a tyre onto another slot to rotate/swap</span>
-      </div>
-      {error && <div className="form-error" style={{ marginBottom: 12 }}>{error}</div>}
+      <h3 style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 600 }}>Position map</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
         {positions.map((pos) => {
           const tyre = byPosition.get(pos);
           const run = tyre ? distanceRun(tyre, vehicle) : null;
           const tread = tyre ? latestTreadDepth(tyre, services) : null;
-          const isDragOver = dragOverPos === pos;
           return (
-            <div
-              key={pos}
-              draggable={!!tyre && !moving}
-              onDragStart={() => tyre && setDraggingId(tyre.id)}
-              onDragEnd={() => { setDraggingId(null); setDragOverPos(null); }}
-              onDragOver={(e) => { if (draggingId) { e.preventDefault(); setDragOverPos(pos); } }}
-              onDragLeave={() => setDragOverPos((p) => (p === pos ? null : p))}
-              onDrop={(e) => { e.preventDefault(); if (draggingId) handleDrop(pos); }}
-              style={{
-                border: `1px solid ${isDragOver ? 'var(--accent)' : 'var(--border-soft)'}`,
-                borderRadius: 10, padding: '10px 12px',
-                background: tyre ? 'var(--good-soft)' : 'var(--paper)',
-                cursor: tyre && !moving ? 'grab' : 'default',
-                opacity: moving && draggingId === tyre?.id ? 0.5 : 1,
-                boxShadow: isDragOver ? '0 0 0 2px var(--accent)' : 'none',
-                transition: 'box-shadow 0.1s, border-color 0.1s',
-              }}
-            >
+            <div key={pos} style={{
+              border: '1px solid var(--border-soft)', borderRadius: 10, padding: '10px 12px',
+              background: tyre ? 'var(--good-soft)' : 'var(--paper)',
+            }}>
               <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--ink-soft)', fontWeight: 600 }}>
                 {pos}
               </div>
@@ -472,11 +420,16 @@ function TyreForm({
 }
 
 function TyreServiceForm({
-  vehicleId, tyres, onClose, onSaved,
-}: { vehicleId: string; tyres: Tyre[]; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<TyreServiceInput>({ ...BLANK_SERVICE, vehicle: vehicleId });
+  vehicle, tyres, onClose, onSaved,
+}: { vehicle: Vehicle; tyres: Tyre[]; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState<TyreServiceInput>({ ...BLANK_SERVICE, vehicle: vehicle.id });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const positionOptions = useMemo(
+    () => generatePositions(vehicle.number_of_tyres, vehicle.spare_tyres),
+    [vehicle.number_of_tyres, vehicle.spare_tyres],
+  );
 
   function set<K extends keyof TyreServiceInput>(key: K, value: TyreServiceInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -529,12 +482,14 @@ function TyreServiceForm({
           <div className="field span-2">
             <label htmlFor="new_position">
               {form.tyre
-                ? `Moved to position (currently: ${tyres.find((t) => t.id === form.tyre)?.position || 'unassigned'})`
-                : 'Moved to position'}
+                ? `Rotated to position (currently: ${tyres.find((t) => t.id === form.tyre)?.position || 'unassigned'})`
+                : 'Rotated to position (select a specific tyre above first)'}
             </label>
-            <input id="new_position" disabled={!form.tyre}
-              placeholder={form.tyre ? 'e.g. Rear Axle 1 Left Outer' : 'Select a specific tyre above first'}
-              value={form.new_position} onChange={(e) => set('new_position', e.target.value)} />
+            <select id="new_position" disabled={!form.tyre}
+              value={form.new_position} onChange={(e) => set('new_position', e.target.value)}>
+              <option value="">No position change</option>
+              {positionOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
           </div>
           <div className="field span-2">
             <label htmlFor="vendor">Vendor</label>
@@ -553,6 +508,44 @@ function TyreServiceForm({
           <button type="submit" className="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Log service'}</button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+function TyreHistory({
+  tyre, services, onClose,
+}: { tyre: Tyre; services: TyreService[]; onClose: () => void }) {
+  const sorted = [...services].sort((a, b) => b.date.localeCompare(a.date));
+
+  return (
+    <Modal title={`History — ${tyre.position || tyre.brand || 'Tyre'}`} onClose={onClose}>
+      <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginBottom: 14 }}>
+        {tyre.brand || 'Unbranded'} {tyre.size && `· ${tyre.size}`} · Currently at {tyre.position || 'unassigned'}
+      </div>
+      {sorted.length === 0 ? (
+        <div className="empty-state">No service history for this tyre yet.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {sorted.map((s) => (
+            <div key={s.id} style={{ border: '1px solid var(--border-soft)', borderRadius: 8, padding: '10px 12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600 }}>
+                <span>{humanize(s.service_type)}</span>
+                <span className="tnum" style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>{DATE_FMT.format(new Date(s.date))}</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '4px 14px' }}>
+                {s.odometer && <span>Odometer: {Number(s.odometer).toLocaleString('en-IN')}</span>}
+                {s.tread_depth_in && <span>Tread: {s.tread_depth_in}"</span>}
+                {s.new_position && <span>Moved to: {s.new_position}</span>}
+                {s.vendor && <span>Vendor: {s.vendor}</span>}
+              </div>
+              {s.notes && <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>{s.notes}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="form-actions">
+        <button type="button" className="btn" onClick={onClose}>Close</button>
+      </div>
     </Modal>
   );
 }
