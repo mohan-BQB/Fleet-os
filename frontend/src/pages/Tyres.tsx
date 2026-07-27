@@ -13,6 +13,49 @@ function humanize(value: string) {
   return value.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 }
 
+// A generic, editable starting point - not exact axle geometry for every
+// model. Front axle is single, rear axles assumed dual (standard for
+// Indian commercial lorries); position stays a free-text field, so any of
+// these can be renamed to match the real vehicle.
+function generatePositions(numberOfTyres: number, spareTyres: number): string[] {
+  const positions: string[] = [];
+  if (numberOfTyres <= 2) {
+    if (numberOfTyres >= 1) positions.push('Front');
+    if (numberOfTyres >= 2) positions.push('Rear');
+  } else if (numberOfTyres <= 4) {
+    positions.push('Front Left', 'Front Right');
+    if (numberOfTyres === 3) positions.push('Rear');
+    else if (numberOfTyres === 4) positions.push('Rear Left', 'Rear Right');
+  } else {
+    positions.push('Front Left', 'Front Right');
+    let remaining = numberOfTyres - 2;
+    let axle = 1;
+    while (remaining > 0) {
+      const take = Math.min(4, remaining);
+      if (take === 4) {
+        positions.push(
+          `Rear Axle ${axle} Left Outer`, `Rear Axle ${axle} Left Inner`,
+          `Rear Axle ${axle} Right Outer`, `Rear Axle ${axle} Right Inner`,
+        );
+      } else if (take === 2) {
+        positions.push(`Rear Axle ${axle} Left`, `Rear Axle ${axle} Right`);
+      } else {
+        for (let i = 1; i <= take; i++) positions.push(`Rear Axle ${axle} - ${i}`);
+      }
+      remaining -= take;
+      axle += 1;
+    }
+  }
+  for (let i = 1; i <= spareTyres; i++) positions.push(`Spare ${i}`);
+  return positions;
+}
+
+function distanceRun(tyre: Tyre, vehicle: Vehicle | undefined): number | null {
+  if (!vehicle?.current_meter || !tyre.odometer_at_fitting) return null;
+  const run = Number(vehicle.current_meter) - Number(tyre.odometer_at_fitting);
+  return run >= 0 ? run : null;
+}
+
 const BLANK_TYRE: TyreInput = {
   vehicle: '', position: '', brand: '', size: '', serial_number: '',
   fitted_date: null, purchase_date: null, purchase_price: null,
@@ -33,6 +76,7 @@ export default function Tyres() {
   const [editingTyre, setEditingTyre] = useState<Tyre | null>(null);
   const [showTyreForm, setShowTyreForm] = useState(false);
   const [showServiceForm, setShowServiceForm] = useState(false);
+  const [prefillPosition, setPrefillPosition] = useState<string | null>(null);
 
   function load() {
     listTyres().then(setTyres).catch((err) => setError(err.message));
@@ -103,34 +147,46 @@ export default function Tyres() {
           </section>
         )}
 
+        {vehicle && (
+          <PositionMap
+            vehicle={vehicle}
+            tyres={vehicleTyres}
+            onAddAt={(position) => { setEditingTyre(null); setPrefillPosition(position); setShowTyreForm(true); }}
+          />
+        )}
+
         <section className="table-card">
           <div className="table-head">
             <h3>Tyre inventory</h3>
-            <button className="btn primary" onClick={() => { setEditingTyre(null); setShowTyreForm(true); }} disabled={!vehicleId}>
+            <button className="btn primary" onClick={() => { setEditingTyre(null); setPrefillPosition(null); setShowTyreForm(true); }} disabled={!vehicleId}>
               + Add tyre
             </button>
           </div>
           <div className="table-scroll">
             <table>
-              <thead><tr><th>Position</th><th>Brand</th><th>Size</th><th>Fitted</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Position</th><th>Brand</th><th>Size</th><th>Fitted</th><th>Distance run</th><th>Status</th><th></th></tr></thead>
               <tbody>
-                {vehicleTyres.map((t) => (
-                  <tr key={t.id}>
-                    <td>{t.position || '—'}</td>
-                    <td>{t.brand || '—'}</td>
-                    <td>{t.size || '—'}</td>
-                    <td className="tnum">{t.fitted_date ? DATE_FMT.format(new Date(t.fitted_date)) : '—'}</td>
-                    <td>
-                      <span className={`pill ${t.status === 'fitted' ? 'on' : t.status === 'spare' ? 'svc' : 'off'}`}>{humanize(t.status)}</span>
-                    </td>
-                    <td>
-                      <div className="row-actions">
-                        <button className="link-btn" onClick={() => { setEditingTyre(t); setShowTyreForm(true); }}>Edit</button>
-                        {t.status !== 'retired' && <button className="link-btn danger" onClick={() => handleRetireTyre(t)}>Retire</button>}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {vehicleTyres.map((t) => {
+                  const run = distanceRun(t, vehicle);
+                  return (
+                    <tr key={t.id}>
+                      <td>{t.position || '—'}</td>
+                      <td>{t.brand || '—'}</td>
+                      <td>{t.size || '—'}</td>
+                      <td className="tnum">{t.fitted_date ? DATE_FMT.format(new Date(t.fitted_date)) : '—'}</td>
+                      <td className="tnum">{run !== null ? `${run.toLocaleString('en-IN')} ${vehicle?.metering_unit ?? 'km'}` : '—'}</td>
+                      <td>
+                        <span className={`pill ${t.status === 'fitted' ? 'on' : t.status === 'spare' ? 'svc' : 'off'}`}>{humanize(t.status)}</span>
+                      </td>
+                      <td>
+                        <div className="row-actions">
+                          <button className="link-btn" onClick={() => { setEditingTyre(t); setPrefillPosition(null); setShowTyreForm(true); }}>Edit</button>
+                          {t.status !== 'retired' && <button className="link-btn danger" onClick={() => handleRetireTyre(t)}>Retire</button>}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             {vehicleTyres.length === 0 && <div className="empty-state">No tyres tracked for this vehicle yet.</div>}
@@ -164,10 +220,12 @@ export default function Tyres() {
         </section>
       </main>
 
-      {showTyreForm && (
+      {showTyreForm && vehicle && (
         <TyreForm
           initial={editingTyre}
-          vehicleId={vehicleId}
+          vehicle={vehicle}
+          prefillPosition={prefillPosition}
+          existingPositions={vehicleTyres.filter((t) => t.status !== 'retired').map((t) => t.position)}
           onClose={() => setShowTyreForm(false)}
           onSaved={() => { setShowTyreForm(false); load(); }}
         />
@@ -184,6 +242,51 @@ export default function Tyres() {
   );
 }
 
+function PositionMap({
+  vehicle, tyres, onAddAt,
+}: { vehicle: Vehicle; tyres: Tyre[]; onAddAt: (position: string) => void }) {
+  const positions = useMemo(
+    () => generatePositions(vehicle.number_of_tyres, vehicle.spare_tyres),
+    [vehicle.number_of_tyres, vehicle.spare_tyres],
+  );
+  const byPosition = new Map(tyres.filter((t) => t.status !== 'retired' && t.position).map((t) => [t.position, t]));
+
+  return (
+    <section className="table-card" style={{ padding: 18 }}>
+      <h3 style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 600 }}>Position map</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+        {positions.map((pos) => {
+          const tyre = byPosition.get(pos);
+          const run = tyre ? distanceRun(tyre, vehicle) : null;
+          return (
+            <div key={pos} style={{
+              border: '1px solid var(--border-soft)', borderRadius: 10, padding: '10px 12px',
+              background: tyre ? 'var(--good-soft)' : 'var(--paper)',
+            }}>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--ink-soft)', fontWeight: 600 }}>
+                {pos}
+              </div>
+              {tyre ? (
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4 }}>{tyre.brand || 'Unbranded'}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>{tyre.size || '—'}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>
+                    {run !== null ? `${run.toLocaleString('en-IN')} ${vehicle.metering_unit}` : 'No odometer data'}
+                  </div>
+                </>
+              ) : (
+                <button type="button" className="link-btn" style={{ marginTop: 8, fontSize: 11.5 }} onClick={() => onAddAt(pos)}>
+                  + Assign tyre
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function toTyreInput(t: Tyre): TyreInput {
   return {
     vehicle: t.vehicle, position: t.position, brand: t.brand, size: t.size,
@@ -193,11 +296,22 @@ function toTyreInput(t: Tyre): TyreInput {
 }
 
 function TyreForm({
-  initial, vehicleId, onClose, onSaved,
-}: { initial: Tyre | null; vehicleId: string; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<TyreInput>(initial ? toTyreInput(initial) : { ...BLANK_TYRE, vehicle: vehicleId });
+  initial, vehicle, prefillPosition, existingPositions, onClose, onSaved,
+}: {
+  initial: Tyre | null; vehicle: Vehicle; prefillPosition: string | null; existingPositions: string[];
+  onClose: () => void; onSaved: () => void;
+}) {
+  const [form, setForm] = useState<TyreInput>(
+    initial ? toTyreInput(initial) : { ...BLANK_TYRE, vehicle: vehicle.id, position: prefillPosition ?? '' },
+  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const suggestedPositions = useMemo(() => {
+    const all = generatePositions(vehicle.number_of_tyres, vehicle.spare_tyres);
+    const taken = new Set(existingPositions.filter((p) => p !== initial?.position));
+    return all.filter((p) => !taken.has(p));
+  }, [vehicle.number_of_tyres, vehicle.spare_tyres, existingPositions, initial]);
 
   function set<K extends keyof TyreInput>(key: K, value: TyreInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -223,8 +337,12 @@ function TyreForm({
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
           <div className="field">
-            <label htmlFor="position">Position</label>
-            <input id="position" placeholder="e.g. Front left" value={form.position} onChange={(e) => set('position', e.target.value)} />
+            <label htmlFor="position">Position (optional)</label>
+            <input id="position" list="position-suggestions" placeholder="e.g. Front left"
+              value={form.position} onChange={(e) => set('position', e.target.value)} />
+            <datalist id="position-suggestions">
+              {suggestedPositions.map((p) => <option key={p} value={p} />)}
+            </datalist>
           </div>
           <div className="field">
             <label htmlFor="brand">Brand</label>
