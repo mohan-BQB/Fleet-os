@@ -232,6 +232,8 @@ export interface TyreService {
   service_type: string;
   date: string;
   odometer: string | null;
+  tread_depth_in: string | null;
+  new_position: string;
   vendor: string;
   notes: string;
 }

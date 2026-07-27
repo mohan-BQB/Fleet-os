@@ -66,11 +66,25 @@ class TyreService(BaseModel):
     service_type = models.CharField(max_length=20, choices=TyreServiceType.choices)
     date = models.DateField()
     odometer = models.DecimalField(max_digits=12, decimal_places=1, null=True, blank=True)
+    # A reading at this service, not a single static value on Tyre - lets
+    # tread wear be tracked over time across inspections/rotations.
+    tread_depth_in = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    # For rotation/replacement: where the tyre ended up. save() below applies
+    # this to the tyre's own `position`, which is what actually moves it on
+    # the position map; this field is just the historical record of that
+    # change - core.audit already captures the before/after on Tyre itself.
+    new_position = models.CharField(max_length=40, blank=True)
     vendor = models.CharField(max_length=120, blank=True)
     notes = models.CharField(max_length=300, blank=True)
 
     class Meta:
         ordering = ["-date"]
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.tyre_id and self.new_position and self.tyre.position != self.new_position:
+            self.tyre.position = self.new_position
+            self.tyre.save()
 
     def __str__(self):
         return f"{self.vehicle.registration_number} - {self.get_service_type_display()} ({self.date})"

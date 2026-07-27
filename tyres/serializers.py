@@ -18,6 +18,7 @@ class TyreServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = TyreService
         fields = [
-            "id", "vehicle", "tyre", "service_type", "date", "odometer", "vendor", "notes",
+            "id", "vehicle", "tyre", "service_type", "date", "odometer",
+            "tread_depth_in", "new_position", "vendor", "notes",
         ]
         read_only_fields = ["id"]

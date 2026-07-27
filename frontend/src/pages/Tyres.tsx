@@ -64,8 +64,16 @@ const BLANK_TYRE: TyreInput = {
 
 const BLANK_SERVICE: TyreServiceInput = {
   vehicle: '', tyre: null, service_type: 'alignment', date: new Date().toISOString().slice(0, 10),
-  odometer: null, vendor: '', notes: '',
+  odometer: null, tread_depth_in: null, new_position: '', vendor: '', notes: '',
 };
+
+// Most recent tread_depth_in reading logged for this tyre, if any.
+function latestTreadDepth(tyre: Tyre, services: TyreService[]): string | null {
+  const readings = services
+    .filter((s) => s.tyre === tyre.id && s.tread_depth_in !== null)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return readings[0]?.tread_depth_in ?? null;
+}
 
 export default function Tyres() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -151,6 +159,7 @@ export default function Tyres() {
           <PositionMap
             vehicle={vehicle}
             tyres={vehicleTyres}
+            services={vehicleServices}
             onAddAt={(position) => { setEditingTyre(null); setPrefillPosition(position); setShowTyreForm(true); }}
           />
         )}
@@ -164,10 +173,11 @@ export default function Tyres() {
           </div>
           <div className="table-scroll">
             <table>
-              <thead><tr><th>Position</th><th>Brand</th><th>Size</th><th>Fitted</th><th>Distance run</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Position</th><th>Brand</th><th>Size</th><th>Fitted</th><th>Distance run</th><th>Tread depth</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {vehicleTyres.map((t) => {
                   const run = distanceRun(t, vehicle);
+                  const tread = latestTreadDepth(t, vehicleServices);
                   return (
                     <tr key={t.id}>
                       <td>{t.position || '—'}</td>
@@ -175,6 +185,7 @@ export default function Tyres() {
                       <td>{t.size || '—'}</td>
                       <td className="tnum">{t.fitted_date ? DATE_FMT.format(new Date(t.fitted_date)) : '—'}</td>
                       <td className="tnum">{run !== null ? `${run.toLocaleString('en-IN')} ${vehicle?.metering_unit ?? 'km'}` : '—'}</td>
+                      <td className="tnum">{tread !== null ? `${tread}"` : '—'}</td>
                       <td>
                         <span className={`pill ${t.status === 'fitted' ? 'on' : t.status === 'spare' ? 'svc' : 'off'}`}>{humanize(t.status)}</span>
                       </td>
@@ -202,13 +213,15 @@ export default function Tyres() {
           </div>
           <div className="table-scroll">
             <table>
-              <thead><tr><th>Type</th><th>Date</th><th>Odometer</th><th>Vendor</th><th></th></tr></thead>
+              <thead><tr><th>Type</th><th>Date</th><th>Odometer</th><th>Tread depth</th><th>New position</th><th>Vendor</th><th></th></tr></thead>
               <tbody>
                 {vehicleServices.map((s) => (
                   <tr key={s.id}>
                     <td>{humanize(s.service_type)}</td>
                     <td className="tnum">{DATE_FMT.format(new Date(s.date))}</td>
                     <td className="tnum">{s.odometer ? Number(s.odometer).toLocaleString('en-IN') : '—'}</td>
+                    <td className="tnum">{s.tread_depth_in ? `${s.tread_depth_in}"` : '—'}</td>
+                    <td>{s.new_position || '—'}</td>
                     <td>{s.vendor || '—'}</td>
                     <td><button className="link-btn danger" onClick={() => handleRetireService(s)}>Remove</button></td>
                   </tr>
@@ -243,8 +256,8 @@ export default function Tyres() {
 }
 
 function PositionMap({
-  vehicle, tyres, onAddAt,
-}: { vehicle: Vehicle; tyres: Tyre[]; onAddAt: (position: string) => void }) {
+  vehicle, tyres, services, onAddAt,
+}: { vehicle: Vehicle; tyres: Tyre[]; services: TyreService[]; onAddAt: (position: string) => void }) {
   const positions = useMemo(
     () => generatePositions(vehicle.number_of_tyres, vehicle.spare_tyres),
     [vehicle.number_of_tyres, vehicle.spare_tyres],
@@ -258,6 +271,7 @@ function PositionMap({
         {positions.map((pos) => {
           const tyre = byPosition.get(pos);
           const run = tyre ? distanceRun(tyre, vehicle) : null;
+          const tread = tyre ? latestTreadDepth(tyre, services) : null;
           return (
             <div key={pos} style={{
               border: '1px solid var(--border-soft)', borderRadius: 10, padding: '10px 12px',
@@ -273,6 +287,9 @@ function PositionMap({
                   <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>
                     {run !== null ? `${run.toLocaleString('en-IN')} ${vehicle.metering_unit}` : 'No odometer data'}
                   </div>
+                  {tread !== null && (
+                    <div style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>Tread {tread}"</div>
+                  )}
                 </>
               ) : (
                 <button type="button" className="link-btn" style={{ marginTop: 8, fontSize: 11.5 }} onClick={() => onAddAt(pos)}>
@@ -443,6 +460,20 @@ function TyreServiceForm({
             <label htmlFor="odometer">Odometer</label>
             <input id="odometer" type="number" step="0.1" value={form.odometer ?? ''} onChange={(e) => set('odometer', e.target.value || null)} />
           </div>
+          <div className="field">
+            <label htmlFor="tread_depth_in">Tread depth (in)</label>
+            <input id="tread_depth_in" type="number" step="0.01" value={form.tread_depth_in ?? ''}
+              onChange={(e) => set('tread_depth_in', e.target.value || null)} />
+          </div>
+          {form.tyre && (
+            <div className="field">
+              <label htmlFor="new_position">
+                Moved to position (currently: {tyres.find((t) => t.id === form.tyre)?.position || 'unassigned'})
+              </label>
+              <input id="new_position" placeholder="e.g. Rear Axle 1 Left Outer" value={form.new_position}
+                onChange={(e) => set('new_position', e.target.value)} />
+            </div>
+          )}
           <div className="field span-2">
             <label htmlFor="vendor">Vendor</label>
             <input id="vendor" value={form.vendor} onChange={(e) => set('vendor', e.target.value)} />
