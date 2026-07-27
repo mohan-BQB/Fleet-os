@@ -9,6 +9,7 @@ import Compliance from './pages/Compliance';
 import TripSheets from './pages/TripSheets';
 import FuelLog from './pages/FuelLog';
 import Tyres from './pages/Tyres';
+import Maintenance from './pages/Maintenance';
 import Economics from './pages/Economics';
 import DriverLedger from './pages/DriverLedger';
 import Reports from './pages/Reports';
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="trip-sheets" element={<TripSheets />} />
         <Route path="fuel-log" element={<FuelLog />} />
         <Route path="tyres" element={<Tyres />} />
+        <Route path="maintenance" element={<Maintenance />} />
         <Route path="economics" element={<Economics />} />
         <Route path="driver-ledger" element={<DriverLedger />} />
         <Route path="reports" element={<Reports />} />

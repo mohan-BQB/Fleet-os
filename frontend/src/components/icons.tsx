@@ -18,6 +18,12 @@ export const TruckIcon = ({ className }: IconProps) => (
   </svg>
 );
 
+export const WrenchIcon = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-2.2 2.2-2-2 2.2-2.2Z" />
+  </svg>
+);
+
 export const TyreIcon = ({ className }: IconProps) => (
   <svg {...base} className={className}>
     <circle cx="12" cy="12" r="9" />

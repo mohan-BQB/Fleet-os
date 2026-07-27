@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     "operations",
     "economics",
     "tyres",
+    "maintenance",
 ]
 
 # 3. Middleware - CurrentTenantMiddleware AFTER AuthenticationMiddleware.

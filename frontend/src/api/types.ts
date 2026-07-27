@@ -241,3 +241,37 @@ export interface TyreService {
 }
 
 export type TyreServiceInput = Omit<TyreService, 'id'>;
+
+export interface MaintenanceSchedule {
+  id: string;
+  vehicle: string;
+  part_name: string;
+  interval_km: number | null;
+  interval_days: number | null;
+  last_done_date: string | null;
+  last_done_odometer: string | null;
+  notes: string;
+  status: 'active' | 'inactive';
+  next_due_km: string | null;
+  next_due_date: string | null;
+  km_remaining: string | null;
+  days_remaining: number | null;
+  is_overdue: boolean;
+}
+
+export type MaintenanceScheduleInput = Omit<
+  MaintenanceSchedule, 'id' | 'status' | 'next_due_km' | 'next_due_date' | 'km_remaining' | 'days_remaining' | 'is_overdue'
+>;
+
+export interface MaintenanceLog {
+  id: string;
+  vehicle: string;
+  schedule: string | null;
+  part_name: string;
+  date: string;
+  odometer: string | null;
+  vendor: string;
+  notes: string;
+}
+
+export type MaintenanceLogInput = Omit<MaintenanceLog, 'id'>;

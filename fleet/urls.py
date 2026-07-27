@@ -28,6 +28,7 @@ urlpatterns = [
     path('api/operations/', include('operations.urls')),
     path('api/economics/', include('economics.urls')),
     path('api/', include('tyres.urls')),
+    path('api/maintenance/', include('maintenance.urls')),
     # Serves uploaded files (compliance docs, driver photos/licences).
     # Note: on Render's free plan the disk is ephemeral - uploads are lost on
     # the next deploy until this moves to S3-compatible storage.
