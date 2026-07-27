@@ -161,6 +161,7 @@ export default function Tyres() {
             tyres={vehicleTyres}
             services={vehicleServices}
             onAddAt={(position) => { setEditingTyre(null); setPrefillPosition(position); setShowTyreForm(true); }}
+            onMoved={load}
           />
         )}
 
@@ -256,27 +257,87 @@ export default function Tyres() {
 }
 
 function PositionMap({
-  vehicle, tyres, services, onAddAt,
-}: { vehicle: Vehicle; tyres: Tyre[]; services: TyreService[]; onAddAt: (position: string) => void }) {
+  vehicle, tyres, services, onAddAt, onMoved,
+}: {
+  vehicle: Vehicle; tyres: Tyre[]; services: TyreService[];
+  onAddAt: (position: string) => void; onMoved: () => void;
+}) {
   const positions = useMemo(
     () => generatePositions(vehicle.number_of_tyres, vehicle.spare_tyres),
     [vehicle.number_of_tyres, vehicle.spare_tyres],
   );
   const byPosition = new Map(tyres.filter((t) => t.status !== 'retired' && t.position).map((t) => [t.position, t]));
 
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverPos, setDragOverPos] = useState<string | null>(null);
+  const [moving, setMoving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function logMove(tyre: Tyre, newPosition: string) {
+    await createTyreService({
+      vehicle: vehicle.id, tyre: tyre.id, service_type: 'rotation',
+      date: new Date().toISOString().slice(0, 10), odometer: vehicle.current_meter,
+      tread_depth_in: null, new_position: newPosition, vendor: '', notes: 'Moved via drag-and-drop',
+    });
+  }
+
+  async function handleDrop(targetPos: string) {
+    setDragOverPos(null);
+    const sourceTyre = tyres.find((t) => t.id === draggingId);
+    setDraggingId(null);
+    if (!sourceTyre || sourceTyre.position === targetPos) return;
+
+    setMoving(true);
+    setError(null);
+    try {
+      const targetTyre = byPosition.get(targetPos);
+      if (targetTyre) {
+        // Swap: each tyre takes the other's position.
+        await logMove(sourceTyre, targetPos);
+        await logMove(targetTyre, sourceTyre.position);
+      } else {
+        await logMove(sourceTyre, targetPos);
+      }
+      onMoved();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not move tyre.');
+    } finally {
+      setMoving(false);
+    }
+  }
+
   return (
     <section className="table-card" style={{ padding: 18 }}>
-      <h3 style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 600 }}>Position map</h3>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
+        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>Position map</h3>
+        <span style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>Drag a tyre onto another slot to rotate/swap</span>
+      </div>
+      {error && <div className="form-error" style={{ marginBottom: 12 }}>{error}</div>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
         {positions.map((pos) => {
           const tyre = byPosition.get(pos);
           const run = tyre ? distanceRun(tyre, vehicle) : null;
           const tread = tyre ? latestTreadDepth(tyre, services) : null;
+          const isDragOver = dragOverPos === pos;
           return (
-            <div key={pos} style={{
-              border: '1px solid var(--border-soft)', borderRadius: 10, padding: '10px 12px',
-              background: tyre ? 'var(--good-soft)' : 'var(--paper)',
-            }}>
+            <div
+              key={pos}
+              draggable={!!tyre && !moving}
+              onDragStart={() => tyre && setDraggingId(tyre.id)}
+              onDragEnd={() => { setDraggingId(null); setDragOverPos(null); }}
+              onDragOver={(e) => { if (draggingId) { e.preventDefault(); setDragOverPos(pos); } }}
+              onDragLeave={() => setDragOverPos((p) => (p === pos ? null : p))}
+              onDrop={(e) => { e.preventDefault(); if (draggingId) handleDrop(pos); }}
+              style={{
+                border: `1px solid ${isDragOver ? 'var(--accent)' : 'var(--border-soft)'}`,
+                borderRadius: 10, padding: '10px 12px',
+                background: tyre ? 'var(--good-soft)' : 'var(--paper)',
+                cursor: tyre && !moving ? 'grab' : 'default',
+                opacity: moving && draggingId === tyre?.id ? 0.5 : 1,
+                boxShadow: isDragOver ? '0 0 0 2px var(--accent)' : 'none',
+                transition: 'box-shadow 0.1s, border-color 0.1s',
+              }}
+            >
               <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--ink-soft)', fontWeight: 600 }}>
                 {pos}
               </div>
