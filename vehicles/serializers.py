@@ -12,5 +12,6 @@ class VehicleSerializer(serializers.ModelSerializer):
             "engine_number", "rc_valid_till", "fuel_norm", "maker", "model",
             "mfg_year", "fuel_type", "fleet_id", "current_meter",
             "meter_reading_date", "status",
+            "number_of_tyres", "spare_tyres", "axle_layout",
         ]
         read_only_fields = ["id", "status", "metering_unit"]

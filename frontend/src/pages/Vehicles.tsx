@@ -4,7 +4,7 @@ import { TruckIcon } from '../components/icons';
 import { createVehicle, listVehicles, retireVehicle, updateVehicle } from '../api/fleet';
 import { ApiError } from '../api/client';
 import {
-  FUEL_TYPES, TRACKING_MODES, VEHICLE_CATEGORIES, VEHICLE_USAGE,
+  AXLE_LAYOUTS, FUEL_TYPES, TRACKING_MODES, VEHICLE_CATEGORIES, VEHICLE_USAGE,
   type Vehicle, type VehicleInput,
 } from '../api/types';
 
@@ -18,6 +18,7 @@ const BLANK: VehicleInput = {
   registration_number: '', category: 'lorry', usage: 'commercial', tracking_mode: 'manual',
   rc_valid_till: null, maker: '', model: '', mfg_year: null, fuel_type: '', fleet_id: '',
   current_meter: null, meter_reading_date: null,
+  number_of_tyres: 6, spare_tyres: 1, axle_layout: '',
 };
 
 export default function Vehicles() {
@@ -62,6 +63,7 @@ export default function Vehicles() {
                   <th>Category</th>
                   <th>Usage</th>
                   <th>Tracking</th>
+                  <th>Tyres</th>
                   <th>RC valid till</th>
                   <th>Status</th>
                   <th></th>
@@ -79,6 +81,7 @@ export default function Vehicles() {
                     <td>{humanize(v.category)}</td>
                     <td>{humanize(v.usage)}</td>
                     <td>{v.tracking_mode === 'gps' ? 'GPS' : 'Manual'}</td>
+                    <td className="tnum">{v.number_of_tyres} + {v.spare_tyres} spare</td>
                     <td className="tnum">{v.rc_valid_till ? DATE_FMT.format(new Date(v.rc_valid_till)) : '—'}</td>
                     <td><span className={`pill ${v.status === 'active' ? 'on' : v.status === 'in_service' ? 'svc' : 'off'}`}>{humanize(v.status)}</span></td>
                     <td>
@@ -203,6 +206,26 @@ function VehicleForm({
             <label htmlFor="current_meter">Current odometer</label>
             <input id="current_meter" type="number" step="0.1" value={form.current_meter ?? ''}
               onChange={(e) => set('current_meter', e.target.value || null)} />
+          </div>
+
+          <div className="field">
+            <label htmlFor="axle_layout">Axle layout</label>
+            <select id="axle_layout" value={form.axle_layout} onChange={(e) => set('axle_layout', e.target.value)}>
+              <option value="">—</option>
+              {AXLE_LAYOUTS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+            </select>
+          </div>
+          <div />
+
+          <div className="field">
+            <label htmlFor="number_of_tyres">Tyres (excl. spare)</label>
+            <input id="number_of_tyres" type="number" min="0" value={form.number_of_tyres}
+              onChange={(e) => set('number_of_tyres', Number(e.target.value))} />
+          </div>
+          <div className="field">
+            <label htmlFor="spare_tyres">Spare tyres</label>
+            <input id="spare_tyres" type="number" min="0" value={form.spare_tyres}
+              onChange={(e) => set('spare_tyres', Number(e.target.value))} />
           </div>
         </div>
 

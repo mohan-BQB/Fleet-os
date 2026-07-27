@@ -14,6 +14,16 @@ export const VEHICLE_CATEGORIES = ['lorry', 'four_wheeler', 'car', 'two_wheeler'
 export const VEHICLE_USAGE = ['commercial', 'private'] as const;
 export const TRACKING_MODES = ['manual', 'gps'] as const;
 export const FUEL_TYPES = ['diesel', 'petrol', 'cng', 'lpg', 'electric'] as const;
+export const AXLE_LAYOUTS = [
+  { value: 'lorry_6', label: 'Lorry · 6-wheeler' },
+  { value: 'lorry_10', label: 'Lorry · 10-wheeler' },
+  { value: 'lorry_12', label: 'Lorry · 12-wheeler' },
+  { value: 'lorry_14', label: 'Lorry · 14-wheeler' },
+  { value: 'lorry_16', label: 'Lorry · 16-wheeler' },
+  { value: 'car_4_1', label: 'Car · 4 + 1' },
+  { value: 'two_wheeler_2', label: 'Two-wheeler · 2' },
+  { value: 'tractor', label: 'Tractor · small front + big rear' },
+] as const;
 
 export interface Vehicle {
   id: string;
@@ -31,6 +41,9 @@ export interface Vehicle {
   current_meter: string | null;
   meter_reading_date: string | null;
   status: 'active' | 'in_service' | 'sold' | 'scrapped';
+  number_of_tyres: number;
+  spare_tyres: number;
+  axle_layout: string;
 }
 
 export type VehicleInput = Omit<Vehicle, 'id' | 'status' | 'metering_unit'>;
@@ -190,3 +203,37 @@ export interface DashboardPnL {
   };
   by_vehicle: VehiclePnL[];
 }
+
+export interface Tyre {
+  id: string;
+  vehicle: string;
+  position: string;
+  brand: string;
+  size: string;
+  serial_number: string;
+  fitted_date: string | null;
+  purchase_date: string | null;
+  purchase_price: string | null;
+  odometer_at_fitting: string | null;
+  notes: string;
+  status: 'fitted' | 'spare' | 'retired';
+}
+
+export type TyreInput = Omit<Tyre, 'id' | 'status'>;
+
+export const TYRE_SERVICE_TYPES = [
+  'alignment', 'rotation', 'balancing', 'puncture_repair', 'replacement', 'inspection',
+] as const;
+
+export interface TyreService {
+  id: string;
+  vehicle: string;
+  tyre: string | null;
+  service_type: string;
+  date: string;
+  odometer: string | null;
+  vendor: string;
+  notes: string;
+}
+
+export type TyreServiceInput = Omit<TyreService, 'id'>;
