@@ -419,6 +419,8 @@ function TyreForm({
   );
 }
 
+const BULK_SERVICE_TYPES = new Set(['rotation', 'balancing']);
+
 function TyreServiceForm({
   vehicle, tyres, onClose, onSaved,
 }: { vehicle: Vehicle; tyres: Tyre[]; onClose: () => void; onSaved: () => void }) {
@@ -431,16 +433,51 @@ function TyreServiceForm({
     [vehicle.number_of_tyres, vehicle.spare_tyres],
   );
 
+  // Rotation/balancing service a full set of tyres in one visit, not just
+  // one - so those two types switch the form into a bulk mode covering
+  // every currently-fitted tyre at once.
+  const isBulk = BULK_SERVICE_TYPES.has(form.service_type);
+  const fittedTyres = useMemo(() => tyres.filter((t) => t.status === 'fitted'), [tyres]);
+  const [bulkPositions, setBulkPositions] = useState<Record<string, string>>(
+    () => Object.fromEntries(fittedTyres.map((t) => [t.id, t.position])),
+  );
+
   function set<K extends keyof TyreServiceInput>(key: K, value: TyreServiceInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
+  function setServiceType(type: string) {
+    set('service_type', type);
+    if (BULK_SERVICE_TYPES.has(type)) {
+      setBulkPositions(Object.fromEntries(fittedTyres.map((t) => [t.id, t.position])));
+    }
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setSaving(true);
     setError(null);
+
+    if (isBulk && form.service_type === 'rotation') {
+      const targets = Object.values(bulkPositions).filter(Boolean);
+      const duplicates = targets.filter((p, i) => targets.indexOf(p) !== i);
+      if (duplicates.length > 0) {
+        setError(`More than one tyre is set to move to "${duplicates[0]}" - each position can only hold one tyre.`);
+        return;
+      }
+    }
+
+    setSaving(true);
     try {
-      await createTyreService(form);
+      if (isBulk) {
+        await Promise.all(fittedTyres.map((t) => createTyreService({
+          vehicle: vehicle.id, tyre: t.id, service_type: form.service_type, date: form.date,
+          odometer: form.odometer, tread_depth_in: form.tread_depth_in,
+          new_position: form.service_type === 'rotation' ? bulkPositions[t.id] : '',
+          vendor: form.vendor, notes: form.notes,
+        })));
+      } else {
+        await createTyreService(form);
+      }
       onSaved();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not save service record.');
@@ -455,7 +492,7 @@ function TyreServiceForm({
         <div className="form-grid">
           <div className="field">
             <label htmlFor="service_type">Type</label>
-            <select id="service_type" value={form.service_type} onChange={(e) => set('service_type', e.target.value)}>
+            <select id="service_type" value={form.service_type} onChange={(e) => setServiceType(e.target.value)}>
               {TYRE_SERVICE_TYPES.map((t) => <option key={t} value={t}>{humanize(t)}</option>)}
             </select>
           </div>
@@ -463,13 +500,31 @@ function TyreServiceForm({
             <label htmlFor="date">Date</label>
             <input id="date" type="date" required value={form.date} onChange={(e) => set('date', e.target.value)} />
           </div>
-          <div className="field">
-            <label htmlFor="tyre">Specific tyre (optional)</label>
-            <select id="tyre" value={form.tyre ?? ''} onChange={(e) => set('tyre', e.target.value || null)}>
-              <option value="">Whole vehicle (e.g. alignment)</option>
-              {tyres.map((t) => <option key={t.id} value={t.id}>{t.position || t.brand || t.id.slice(0, 8)}</option>)}
-            </select>
-          </div>
+
+          {!isBulk && (
+            <>
+              <div className="field">
+                <label htmlFor="tyre">Specific tyre (optional)</label>
+                <select id="tyre" value={form.tyre ?? ''} onChange={(e) => set('tyre', e.target.value || null)}>
+                  <option value="">Whole vehicle (e.g. alignment)</option>
+                  {tyres.map((t) => <option key={t.id} value={t.id}>{t.position || t.brand || t.id.slice(0, 8)}</option>)}
+                </select>
+              </div>
+              <div className="field span-2">
+                <label htmlFor="new_position">
+                  {form.tyre
+                    ? `Rotated to position (currently: ${tyres.find((t) => t.id === form.tyre)?.position || 'unassigned'})`
+                    : 'Rotated to position (select a specific tyre above first)'}
+                </label>
+                <select id="new_position" disabled={!form.tyre}
+                  value={form.new_position} onChange={(e) => set('new_position', e.target.value)}>
+                  <option value="">No position change</option>
+                  {positionOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+            </>
+          )}
+
           <div className="field">
             <label htmlFor="odometer">Odometer</label>
             <input id="odometer" type="number" step="0.1" value={form.odometer ?? ''} onChange={(e) => set('odometer', e.target.value || null)} />
@@ -479,18 +534,38 @@ function TyreServiceForm({
             <input id="tread_depth_in" type="number" step="0.01" value={form.tread_depth_in ?? ''}
               onChange={(e) => set('tread_depth_in', e.target.value || null)} />
           </div>
-          <div className="field span-2">
-            <label htmlFor="new_position">
-              {form.tyre
-                ? `Rotated to position (currently: ${tyres.find((t) => t.id === form.tyre)?.position || 'unassigned'})`
-                : 'Rotated to position (select a specific tyre above first)'}
-            </label>
-            <select id="new_position" disabled={!form.tyre}
-              value={form.new_position} onChange={(e) => set('new_position', e.target.value)}>
-              <option value="">No position change</option>
-              {positionOptions.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
+
+          {isBulk && (
+            <div className="field span-2">
+              <label>
+                {form.service_type === 'rotation'
+                  ? `All ${fittedTyres.length} fitted tyres - set each one's new position`
+                  : `All ${fittedTyres.length} fitted tyres will be logged as balanced`}
+              </label>
+              {fittedTyres.length === 0 ? (
+                <div style={{ fontSize: 12.5, color: 'var(--ink-soft)' }}>No fitted tyres tracked for this vehicle yet.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {fittedTyres.map((t) => (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ fontSize: 12.5, minWidth: 130, flex: 1 }}>
+                        <strong>{t.position || 'Unassigned'}</strong>
+                        <span style={{ color: 'var(--ink-soft)' }}> · {t.brand || 'Unbranded'}</span>
+                      </div>
+                      {form.service_type === 'rotation' && (
+                        <select value={bulkPositions[t.id] ?? t.position}
+                          onChange={(e) => setBulkPositions((p) => ({ ...p, [t.id]: e.target.value }))}
+                          style={{ flex: 1 }}>
+                          {positionOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="field span-2">
             <label htmlFor="vendor">Vendor</label>
             <input id="vendor" value={form.vendor} onChange={(e) => set('vendor', e.target.value)} />
@@ -505,7 +580,9 @@ function TyreServiceForm({
 
         <div className="form-actions">
           <button type="button" className="btn" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Log service'}</button>
+          <button type="submit" className="btn primary" disabled={saving || (isBulk && fittedTyres.length === 0)}>
+            {saving ? 'Saving…' : isBulk ? `Log for ${fittedTyres.length} tyres` : 'Log service'}
+          </button>
         </div>
       </form>
     </Modal>
