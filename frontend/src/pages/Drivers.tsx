@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
 import ComplianceModal from '../components/ComplianceModal';
+import AuditHistory from '../components/AuditHistory';
 import { DriverIcon } from '../components/icons';
 import { createDriver, listDrivers, retireDriver, updateDriver, type DriverFiles } from '../api/fleet';
 import { ApiError } from '../api/client';
@@ -252,6 +253,7 @@ function DriverForm({
         </div>
 
         {error && <div className="form-error">{error}</div>}
+        {initial && <AuditHistory modelName="Driver" objectId={initial.id} />}
 
         <div className="form-actions">
           <button type="button" className="btn" onClick={onClose}>Cancel</button>

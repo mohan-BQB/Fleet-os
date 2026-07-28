@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
 import ComplianceModal from '../components/ComplianceModal';
+import AuditHistory from '../components/AuditHistory';
 import { TruckIcon } from '../components/icons';
 import { createVehicle, listVehicles, retireVehicle, updateVehicle } from '../api/fleet';
 import { ApiError } from '../api/client';
@@ -242,6 +243,7 @@ function VehicleForm({
         </div>
 
         {error && <div className="form-error">{error}</div>}
+        {initial && <AuditHistory modelName="Vehicle" objectId={initial.id} />}
 
         <div className="form-actions">
           <button type="button" className="btn" onClick={onClose}>Cancel</button>

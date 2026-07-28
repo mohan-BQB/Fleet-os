@@ -1,11 +1,15 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ChartIcon, DriverIcon, FuelIcon, ProfitIcon, RouteIcon, TruckIcon, TyreIcon, WalletIcon, WrenchIcon } from './icons';
+import {
+  ChartIcon, DriverIcon, FuelIcon, HistoryIcon, ProfitIcon, RouteIcon, TeamIcon, TruckIcon, TyreIcon,
+  WalletIcon, WrenchIcon,
+} from './icons';
 import './Layout.css';
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const initials = (user?.username ?? '?').slice(0, 2).toUpperCase();
+  const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
 
   return (
     <div className="app">
@@ -49,6 +53,16 @@ export default function Layout() {
           <NavLink to="/reports" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <ChartIcon />Reports
           </NavLink>
+          {isOwnerOrAdmin && (
+            <>
+              <NavLink to="/team" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+                <TeamIcon />Team
+              </NavLink>
+              <NavLink to="/audit-log" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+                <HistoryIcon />Audit Log
+              </NavLink>
+            </>
+          )}
         </div>
 
         <div className="rail-foot">

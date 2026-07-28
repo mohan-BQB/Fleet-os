@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
+import AuditHistory from '../components/AuditHistory';
 import { listVehicles } from '../api/fleet';
 import { createExpense, getVehiclePnL, listExpenses, retireExpense, updateExpense } from '../api/economics';
 import { ApiError } from '../api/client';
@@ -233,6 +234,7 @@ function ExpenseForm({
         </div>
 
         {error && <div className="form-error">{error}</div>}
+        {initial && <AuditHistory modelName="Expense" objectId={initial.id} />}
 
         <div className="form-actions">
           <button type="button" className="btn" onClick={onClose}>Cancel</button>

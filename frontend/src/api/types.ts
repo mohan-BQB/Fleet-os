@@ -8,6 +8,40 @@ export interface CurrentUser {
   organization: string | null;
   organization_name: string | null;
   driver_id: string | null;
+  is_active: boolean;
+}
+
+export type AppUser = CurrentUser;
+
+export interface UserCreateInput {
+  username: string;
+  email: string;
+  password: string;
+  role: Role;
+  driver_id?: string | null;
+}
+
+export interface UserUpdateInput {
+  role?: Role;
+  is_active?: boolean;
+  driver_id?: string | null;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  user: { id: string; username: string } | null;
+  action: 'create' | 'update' | 'retire' | 'login';
+  model_name: string;
+  object_id: string;
+  changes: Record<string, [string, string]>;
+  created_at: string;
+}
+
+export interface Paginated<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
 }
 
 export const VEHICLE_CATEGORIES = ['lorry', 'four_wheeler', 'car', 'two_wheeler', 'tractor', 'jcb'] as const;

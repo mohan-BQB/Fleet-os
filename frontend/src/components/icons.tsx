@@ -128,3 +128,20 @@ export const BellIcon = ({ className }: IconProps) => (
     <path d="M9.5 17a2.5 2.5 0 0 0 5 0" />
   </svg>
 );
+
+export const TeamIcon = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <circle cx="9" cy="8" r="3" />
+    <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+    <circle cx="17" cy="9" r="2.3" />
+    <path d="M15.5 12.3A4.5 4.5 0 0 1 20.5 16.5" />
+  </svg>
+);
+
+export const HistoryIcon = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <path d="M4 12a8 8 0 1 0 2.3-5.6" />
+    <path d="M4 4v4h4" />
+    <path d="M12 8v4l3 2" />
+  </svg>
+);
