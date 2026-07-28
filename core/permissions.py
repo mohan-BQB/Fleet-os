@@ -20,6 +20,7 @@ MATRIX = {
     "view_pnl_reports":        {Role.OWNER, Role.ADMIN, Role.MANAGER, Role.ACCOUNTANT},
     "edit_company_profile":    {Role.ADMIN},          # incl. uploading the logo
     "upload_logo":             {Role.ADMIN},
+    "view_audit_log":          {Role.OWNER, Role.ADMIN},
 }
 
 

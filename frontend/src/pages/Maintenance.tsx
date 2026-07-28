@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
+import AuditHistory from '../components/AuditHistory';
 import { listVehicles } from '../api/fleet';
 import {
   createMaintenanceLog, createMaintenanceSchedule, listMaintenanceLogs, listMaintenanceSchedules,
@@ -276,6 +277,7 @@ function ScheduleForm({
         </div>
 
         {error && <div className="form-error">{error}</div>}
+        {initial && <AuditHistory modelName="MaintenanceSchedule" objectId={initial.id} />}
 
         <div className="form-actions">
           <button type="button" className="btn" onClick={onClose}>Cancel</button>

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
+import AuditHistory from '../components/AuditHistory';
 import { listDrivers } from '../api/fleet';
 import {
   createLedgerEntry, listLedgerEntries, listTripSheets, retireLedgerEntry, updateLedgerEntry,
@@ -184,6 +185,7 @@ function LedgerEntryForm({
         </div>
 
         {error && <div className="form-error">{error}</div>}
+        {initial && <AuditHistory modelName="DriverLedgerEntry" objectId={initial.id} />}
 
         <div className="form-actions">
           <button type="button" className="btn" onClick={onClose}>Cancel</button>

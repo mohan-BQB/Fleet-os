@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
+import AuditHistory from '../components/AuditHistory';
 import { listDrivers, listVehicles } from '../api/fleet';
 import {
   closeTripSheet, createTripLeg, createTripSheet, listTripSheets, retireTripSheet,
@@ -259,7 +260,9 @@ function TripSheetDetail({
         {tripSheet.closing_meter && <> &middot; {Number(tripSheet.distance_covered).toLocaleString('en-IN')} km covered</>}
       </div>
 
-      <section className="table-card" style={{ boxShadow: 'none' }}>
+      <AuditHistory modelName="TripSheet" objectId={tripSheet.id} />
+
+      <section className="table-card" style={{ boxShadow: 'none', marginTop: 16 }}>
         <div className="table-scroll">
           <table>
             <thead>
