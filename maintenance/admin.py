@@ -15,6 +15,6 @@ class MaintenanceScheduleAdmin(admin.ModelAdmin):
 
 @admin.register(MaintenanceLog)
 class MaintenanceLogAdmin(admin.ModelAdmin):
-    list_display = ["vehicle", "part_name", "date", "odometer", "schedule", "vendor"]
-    list_filter = ["date"]
+    list_display = ["vehicle", "part_name", "date", "odometer", "schedule", "vendor", "billing"]
+    list_filter = ["billing", "date"]
     search_fields = ["vehicle__registration_number", "part_name", "vendor"]

@@ -64,6 +64,7 @@ body {
 a { color: inherit; }
 .tnum { font-variant-numeric: tabular-nums; }
 .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+.src-lock-icon { width: 12px; height: 12px; }
 
 button, input {
   font-family: inherit;

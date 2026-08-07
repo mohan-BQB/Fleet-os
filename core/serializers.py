@@ -1,19 +1,57 @@
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import AuditLog, Role, User
+from .models import AuditLog, CompanyProfile, Permission, Role, User
+from .permissions import effective_permissions
+
+
+class CompanyProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CompanyProfile
+        fields = [
+            "legal_name", "entity_type", "logo", "gstin", "pan", "tan",
+            "address", "city", "state", "pin", "fy_start_month", "updated_at",
+        ]
+        read_only_fields = ["updated_at"]
 
 
 class UserSerializer(serializers.ModelSerializer):
     organization_name = serializers.CharField(source="organization.name", read_only=True, default=None)
+    organization_disabled_modules = serializers.SerializerMethodField()
+    # The caller's own resolved section x action grid - lets the frontend
+    # gate nav/buttons off one response instead of a permissions round-trip
+    # per page. Only meaningful for the requesting user, but harmless (and
+    # simplest) to compute the same way when a viewer looks up someone else
+    # via UserViewSet/PermissionViewSet.
+    permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             "id", "username", "email", "role", "organization", "organization_name", "driver_id",
-            "is_active",
+            "is_active", "is_superuser", "organization_disabled_modules", "permissions",
         ]
         read_only_fields = fields
+
+    def get_organization_disabled_modules(self, obj):
+        return obj.organization.disabled_modules if obj.organization else []
+
+    def get_permissions(self, obj):
+        return effective_permissions(obj)
+
+
+class PermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Permission
+        fields = ["id", "role", "user", "section", "action", "allowed"]
+        read_only_fields = ["id"]
+
+    def validate(self, attrs):
+        role = attrs.get("role", "")
+        user = attrs.get("user")
+        if bool(role) == bool(user):
+            raise serializers.ValidationError("Set exactly one of role or user.")
+        return attrs
 
 
 class UserCreateSerializer(serializers.ModelSerializer):

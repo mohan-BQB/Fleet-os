@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import Modal from '../components/Modal';
 import AuditHistory from '../components/AuditHistory';
 import { listDrivers } from '../api/fleet';
@@ -6,9 +6,14 @@ import {
   createLedgerEntry, listLedgerEntries, listTripSheets, retireLedgerEntry, updateLedgerEntry,
 } from '../api/operations';
 import { ApiError } from '../api/client';
-import { LEDGER_ENTRY_TYPES, type Driver, type DriverLedgerEntry, type DriverLedgerEntryInput, type TripSheet } from '../api/types';
+import {
+  DEDUCTION_SUBTYPES, EARNING_SUBTYPES, LEDGER_ENTRY_TYPES, PAYMENT_MODES,
+  type Driver, type DriverLedgerEntry, type DriverLedgerEntryInput, type TripSheet,
+} from '../api/types';
+import { driverBalance } from '../lib/ledger';
 
 const DATE_FMT = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+const CURRENCY = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
 function humanize(value: string) {
   return value.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
@@ -16,7 +21,7 @@ function humanize(value: string) {
 
 const BLANK: DriverLedgerEntryInput = {
   driver: '', trip_sheet: null, date: new Date().toISOString().slice(0, 10),
-  entry_type: 'wage', amount: '', remarks: '',
+  entry_type: 'wage', subtype: '', payment_mode: '', amount: '', remarks: '',
 };
 
 export default function DriverLedger() {
@@ -74,7 +79,7 @@ export default function DriverLedger() {
                   <tr key={entry.id}>
                     <td>{driverName(entry.driver)}</td>
                     <td>
-                      <span className={`pill ${entry.entry_type === 'deduction' ? 'off' : entry.entry_type === 'advance' ? 'svc' : 'on'}`}>
+                      <span className={`pill ${entry.entry_type === 'wage' || entry.entry_type === 'bonus' ? 'on' : entry.entry_type === 'advance' ? 'svc' : 'off'}`}>
                         {humanize(entry.entry_type)}
                       </span>
                     </td>
@@ -104,6 +109,7 @@ export default function DriverLedger() {
           initial={editing}
           drivers={drivers}
           tripSheets={tripSheets}
+          allEntries={entries ?? []}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); load(); }}
         />
@@ -112,13 +118,40 @@ export default function DriverLedger() {
   );
 }
 
-function LedgerEntryForm({
-  initial, drivers, tripSheets, onClose, onSaved,
-}: {
-  initial: DriverLedgerEntry | null; drivers: Driver[]; tripSheets: TripSheet[];
-  onClose: () => void; onSaved: () => void;
-}) {
-  const [form, setForm] = useState<DriverLedgerEntryInput>(initial ?? BLANK);
+interface LedgerEntryFormProps {
+  initial: DriverLedgerEntry | null;
+  drivers: Driver[];
+  tripSheets: TripSheet[];
+  // Every ledger entry the form can see, used only to compute the selected
+  // driver's current balance (for the advance-limit warning and the
+  // net-payable-after-credit hint) - never sent to the server.
+  allEntries: DriverLedgerEntry[];
+  // Set when opened from a driver's own ledger passbook: the driver (and
+  // often the entry type, from which action button was clicked) is fixed
+  // and shown as a label instead of a picker.
+  presetDriver?: Driver;
+  presetEntryType?: typeof LEDGER_ENTRY_TYPES[number];
+  // Fixes the subtype too (e.g. "salary" for a wage entry) and hides its
+  // picker, same treatment as presetDriver/presetEntryType above.
+  presetSubtype?: string;
+  // Skips this component's own Modal wrapper and returns just the <form> -
+  // for a caller (Expense.tsx's driver-salary shortcut) that wants to host
+  // it inside a Modal it already owns, alongside a sibling form.
+  bare?: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+export function LedgerEntryForm({
+  initial, drivers, tripSheets, allEntries, presetDriver, presetEntryType, presetSubtype, bare, onClose, onSaved,
+}: LedgerEntryFormProps) {
+  const [form, setForm] = useState<DriverLedgerEntryInput>(() => (initial ?? {
+    ...BLANK,
+    driver: presetDriver?.id ?? '',
+    entry_type: presetEntryType ?? BLANK.entry_type,
+    subtype: presetSubtype ?? BLANK.subtype,
+  }));
+  const [settleNow, setSettleNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -127,14 +160,43 @@ function LedgerEntryForm({
   }
 
   const relevantTrips = tripSheets.filter((t) => t.driver === form.driver);
+  const driver = presetDriver ?? drivers.find((d) => d.id === form.driver);
+  const balanceBefore = useMemo(
+    () => driverBalance(allEntries.filter((e) => e.driver === form.driver && e.id !== initial?.id)),
+    [allEntries, form.driver, initial?.id],
+  );
+  const amountNum = Number(form.amount) || 0;
+  const balanceAfter = form.entry_type === 'advance' ? balanceBefore - amountNum
+    : form.entry_type === 'wage' || form.entry_type === 'bonus' ? balanceBefore + amountNum
+    : balanceBefore;
+
+  const subtypeOptions = form.entry_type === 'wage' || form.entry_type === 'bonus' ? EARNING_SUBTYPES
+    : form.entry_type === 'deduction' ? DEDUCTION_SUBTYPES
+    : null;
+
+  const advanceLimit = driver?.advance_limit ? Number(driver.advance_limit) : null;
+  const overLimit = form.entry_type === 'advance' && advanceLimit !== null && -balanceAfter > advanceLimit;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
-      if (initial) await updateLedgerEntry(initial.id, form);
-      else await createLedgerEntry(form);
+      if (initial) {
+        await updateLedgerEntry(initial.id, form);
+      } else {
+        await createLedgerEntry(form);
+        // "salary comes in, the advance is netted off, and you pay only the
+        // difference" - rather than making the owner work out the net
+        // amount and record a separate payment, do it for them here.
+        if (settleNow && (form.entry_type === 'wage' || form.entry_type === 'bonus') && balanceAfter > 0) {
+          await createLedgerEntry({
+            driver: form.driver, trip_sheet: null, date: form.date,
+            entry_type: 'payment', subtype: '', payment_mode: 'cash',
+            amount: String(balanceAfter), remarks: 'Auto-settled with salary credit',
+          });
+        }
+      }
       onSaved();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not save ledger entry.');
@@ -143,24 +205,68 @@ function LedgerEntryForm({
     }
   }
 
-  return (
-    <Modal title={initial ? 'Edit ledger entry' : 'Add ledger entry'} onClose={onClose}>
-      <form onSubmit={handleSubmit}>
+  const body = (
+    <form onSubmit={handleSubmit}>
         <div className="form-grid">
-          <div className="field span-2">
-            <label htmlFor="driver">Driver</label>
-            <select id="driver" required value={form.driver}
-              onChange={(e) => set('driver', e.target.value)}>
-              <option value="">Select a driver…</option>
-              {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="entry_type">Type</label>
-            <select id="entry_type" value={form.entry_type} onChange={(e) => set('entry_type', e.target.value)}>
-              {LEDGER_ENTRY_TYPES.map((t) => <option key={t} value={t}>{humanize(t)}</option>)}
-            </select>
-          </div>
+          {presetDriver ? (
+            <div className="field span-2">
+              <label>Driver</label>
+              <div className="reg-no" style={{ padding: '8px 0' }}>{presetDriver.name}</div>
+            </div>
+          ) : (
+            <div className="field span-2">
+              <label htmlFor="driver">Driver</label>
+              <select id="driver" required value={form.driver}
+                onChange={(e) => set('driver', e.target.value)}>
+                <option value="">Select a driver…</option>
+                {drivers
+                  .filter((d) => d.status === 'active' || d.id === form.driver)
+                  .map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+          )}
+          {presetEntryType ? (
+            <div className="field">
+              <label>Type</label>
+              <div className="reg-no" style={{ padding: '8px 0' }}>{humanize(presetEntryType)}</div>
+            </div>
+          ) : (
+            <div className="field">
+              <label htmlFor="entry_type">Type</label>
+              <select id="entry_type" value={form.entry_type}
+                onChange={(e) => set('entry_type', e.target.value)}
+              >
+                {LEDGER_ENTRY_TYPES.map((t) => <option key={t} value={t}>{humanize(t)}</option>)}
+              </select>
+            </div>
+          )}
+
+          {subtypeOptions && (
+            presetSubtype ? (
+              <div className="field">
+                <label>Subtype</label>
+                <div className="reg-no" style={{ padding: '8px 0' }}>{humanize(presetSubtype)}</div>
+              </div>
+            ) : (
+              <div className="field">
+                <label htmlFor="subtype">Subtype</label>
+                <select id="subtype" value={form.subtype} onChange={(e) => set('subtype', e.target.value)}>
+                  <option value="">—</option>
+                  {subtypeOptions.map((s) => <option key={s} value={s}>{humanize(s)}</option>)}
+                </select>
+              </div>
+            )
+          )}
+          {form.entry_type === 'payment' && (
+            <div className="field">
+              <label htmlFor="payment_mode">Payment mode</label>
+              <select id="payment_mode" value={form.payment_mode} onChange={(e) => set('payment_mode', e.target.value)}>
+                <option value="">—</option>
+                {PAYMENT_MODES.map((m) => <option key={m} value={m}>{humanize(m)}</option>)}
+              </select>
+            </div>
+          )}
+
           <div className="field">
             <label htmlFor="date">Date</label>
             <input id="date" type="date" required value={form.date} onChange={(e) => set('date', e.target.value)} />
@@ -184,6 +290,37 @@ function LedgerEntryForm({
           </div>
         </div>
 
+        {form.entry_type === 'advance' && form.driver && (
+          <div
+            className="form-error"
+            style={overLimit
+              ? undefined
+              : { color: 'var(--ink-soft)', background: 'var(--paper)' }}
+          >
+            {overLimit
+              ? `This brings outstanding advance to ${CURRENCY.format(-balanceAfter)}, above the ${CURRENCY.format(advanceLimit!)} limit set for this driver.`
+              : `Outstanding advance after this entry: ${CURRENCY.format(Math.max(0, -balanceAfter))}`}
+          </div>
+        )}
+
+        {(form.entry_type === 'wage' || form.entry_type === 'bonus') && form.driver && (
+          <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 7, background: 'var(--paper)', fontSize: 12.5 }}>
+            {balanceBefore < 0 && (
+              <div style={{ marginBottom: 6 }}>Outstanding advance: {CURRENCY.format(-balanceBefore)}</div>
+            )}
+            <div style={{ marginBottom: !initial ? 8 : 0 }}>
+              Balance after this credit: <b>{CURRENCY.format(balanceAfter)}</b>
+              {balanceAfter > 0 ? ' owed to driver' : balanceAfter < 0 ? ' still owed by driver' : ' — settled'}
+            </div>
+            {!initial && balanceAfter > 0 && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 400 }}>
+                <input type="checkbox" checked={settleNow} onChange={(e) => setSettleNow(e.target.checked)} />
+                Also record a cash payment for {CURRENCY.format(balanceAfter)} now
+              </label>
+            )}
+          </div>
+        )}
+
         {error && <div className="form-error">{error}</div>}
         {initial && <AuditHistory modelName="DriverLedgerEntry" objectId={initial.id} />}
 
@@ -194,6 +331,13 @@ function LedgerEntryForm({
           </button>
         </div>
       </form>
+  );
+
+  if (bare) return body;
+
+  return (
+    <Modal title={initial ? 'Edit ledger entry' : 'Add ledger entry'} onClose={onClose}>
+      {body}
     </Modal>
   );
 }

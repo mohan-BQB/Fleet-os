@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { listAuditLog } from '../api/audit';
-import { useAuth } from '../context/AuthContext';
+import { usePermission } from '../context/AuthContext';
 import type { AuditLogEntry } from '../api/types';
 
 const DATE_TIME_FMT = new Intl.DateTimeFormat('en-IN', {
@@ -18,15 +18,15 @@ function actionLabel(action: AuditLogEntry['action']) {
   return 'Edited';
 }
 
-// Per-record audit trail, dropped into a form's edit view. Owner/Admin only
-// - the backend's view_audit_log capability is the real gate; this check
-// just keeps the panel off other roles' screens rather than showing an
+// Per-record audit trail, dropped into a form's edit view. Gated on the
+// `reports` section's view permission (same as the Audit Log tab on the
+// Reports page) - the backend is the real gate; this check just keeps the
+// panel off screens for roles that can't see it rather than showing an
 // empty/errored fetch.
 export default function AuditHistory({ modelName, objectId }: { modelName: string; objectId: string }) {
-  const { user } = useAuth();
   const [entries, setEntries] = useState<AuditLogEntry[] | null>(null);
 
-  const canView = user?.role === 'owner' || user?.role === 'admin';
+  const canView = usePermission('reports');
 
   useEffect(() => {
     if (!canView) return;

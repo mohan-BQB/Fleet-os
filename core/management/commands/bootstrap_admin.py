@@ -13,6 +13,7 @@ import os
 from django.core.management.base import BaseCommand
 
 from core.models import Organization, Role, User
+from economics.services import seed_expense_heads
 
 
 class Command(BaseCommand):
@@ -25,6 +26,7 @@ class Command(BaseCommand):
         org_name = os.environ.get("DJANGO_SUPERUSER_ORG", "Demo Fleet Co")
 
         org, _ = Organization.objects.get_or_create(name=org_name)
+        seed_expense_heads(org)
 
         user = User.objects.filter(username=username).first()
         if user is not None:

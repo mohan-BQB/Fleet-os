@@ -1,5 +1,7 @@
 import { apiFetch } from './client';
-import type { Tyre, TyreInput, TyreService, TyreServiceInput } from './types';
+import type {
+  Tyre, TyreInput, TyreReplacementInput, TyreReplacementResult, TyreService, TyreServiceInput,
+} from './types';
 
 export const listTyres = () => apiFetch<Tyre[]>('/tyres/');
 export const createTyre = (input: TyreInput) =>
@@ -14,3 +16,5 @@ export const createTyreService = (input: TyreServiceInput) =>
   apiFetch<TyreService>('/tyre-services/', { method: 'POST', body: JSON.stringify(input) });
 export const retireTyreService = (id: string) =>
   apiFetch<null>(`/tyre-services/${id}/`, { method: 'DELETE' });
+export const replaceTyre = (input: TyreReplacementInput) =>
+  apiFetch<TyreReplacementResult>('/tyre-services/replace_tyre/', { method: 'POST', body: JSON.stringify(input) });

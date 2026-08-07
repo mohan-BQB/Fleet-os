@@ -4,6 +4,15 @@
   min-height: 100vh;
 }
 
+.impersonation-banner {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  padding: 8px 16px; font-size: 12.5px;
+  background: var(--warn-soft); color: var(--warn);
+  border-bottom: 1px solid var(--border-soft);
+}
+.impersonation-banner .btn { padding: 4px 10px; font-size: 11.5px; }
+
 /* ---------- Nav rail ---------- */
 .rail {
   background: var(--nav-bg);
@@ -33,6 +42,18 @@
   font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.09em;
   color: var(--nav-ink-dim); padding: 0 10px; margin: 4px 0 6px;
 }
+.nav-label-btn {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  background: none; border: none; cursor: pointer; font-family: inherit;
+  text-align: left; padding: 0 10px; margin: 4px 0 6px;
+}
+.nav-label-btn .nav-label { padding: 0; margin: 0; }
+.nav-chevron {
+  width: 10px; height: 10px; flex: none; color: var(--nav-ink-dim);
+  transition: transform 0.15s ease; transform: rotate(-90deg);
+}
+.nav-label-btn.expanded .nav-chevron { transform: rotate(0deg); }
+.nav-collapsible { display: flex; flex-direction: column; gap: 2px; }
 .nav-item {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 10px; border-radius: 7px; font-size: 13.5px;
@@ -103,6 +124,40 @@
 .tile-value { font-family: 'Big Shoulders', sans-serif; font-weight: 700; font-size: 34px; line-height: 1; }
 .tile-foot { font-size: 11.5px; color: var(--ink-soft); }
 
+/* ---------- Vehicle picker cards ----------
+   Replaces the click-to-open VehiclePicker panel on pages where you're
+   likely to be scanning across the whole fleet, not just picking one
+   vehicle by name - Tyres.tsx/Maintenance.tsx show a per-vehicle status
+   line so the picker doubles as a triage view. */
+.vehicle-card-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.vehicle-card {
+  display: flex; flex-direction: column; gap: 4px; min-width: 132px;
+  padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border-soft);
+  background: var(--surface); cursor: pointer; text-align: left; font: inherit; color: inherit;
+}
+.vehicle-card:hover { border-color: var(--accent); }
+.vehicle-card.active { border: 2px solid var(--accent); background: var(--accent-soft); padding: 11px 13px; }
+.vehicle-card .vc-reg { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 13.5px; }
+.vehicle-card .vc-status { font-size: 11.5px; color: var(--ink-soft); }
+.vehicle-card .vc-status.warn { color: var(--warn); font-weight: 600; }
+.vehicle-card .vc-status.good { color: var(--good); }
+
+/* ---------- Period summary cards ---------- */
+.period-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.period-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.period-tab {
+  font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--border-soft); background: transparent; color: var(--ink-soft); cursor: pointer;
+}
+.period-tab:hover { border-color: var(--accent); color: var(--accent); }
+.period-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.timeline-custom { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11.5px; color: var(--ink-soft); }
+.timeline-custom input[type="date"] {
+  font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 7px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+}
+.timeline-custom input[type="date"]:focus { border-color: var(--accent); }
+
 /* ---------- Split row ---------- */
 .split-row { display: grid; grid-template-columns: 300px 1fr; gap: 14px; align-items: stretch; }
 
@@ -137,6 +192,17 @@
   padding: 11px 18px; border-bottom: 1px solid var(--border-soft);
 }
 .alert-row:last-child { border-bottom: none; }
+
+/* Resets a native <button> back to looking like the plain element (div/tr
+   cell) it's replacing, so making something clickable doesn't change how
+   it looks - only that it now responds to click/hover/focus. */
+.btn-reset {
+  appearance: none; -webkit-appearance: none; background: none;
+  border-top: none; border-left: none; border-right: none;
+  width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+}
+button.tile:hover, button.alert-row:hover { background: var(--paper); }
+button.tile:hover { box-shadow: var(--shadow-md, var(--shadow)); }
 .stripe { width: 4px; align-self: stretch; border-radius: 2px; }
 .stripe.crit { background: var(--critical); }
 .stripe.warn { background: var(--warn); }
@@ -193,6 +259,35 @@ tbody tr:last-child td { border-bottom: none; }
   .split-row { grid-template-columns: 1fr; }
 }
 
+/* ---------- Responsive (card) tables ----------
+   Opt-in via .table-scroll.responsive - the plain table markup underneath
+   is unchanged, each <td> just needs a data-label so its heading survives
+   the switch to a stacked card layout. */
+@media (max-width: 640px) {
+  .table-scroll.responsive table,
+  .table-scroll.responsive thead,
+  .table-scroll.responsive tbody,
+  .table-scroll.responsive th,
+  .table-scroll.responsive td,
+  .table-scroll.responsive tr { display: block; min-width: 0; }
+  .table-scroll.responsive thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .table-scroll.responsive tbody tr {
+    border: 1px solid var(--border-soft); border-radius: 10px; padding: 10px 14px; margin: 10px; box-shadow: var(--shadow);
+  }
+  .table-scroll.responsive tbody tr:last-child { margin-bottom: 10px; }
+  .table-scroll.responsive td {
+    border: none; padding: 5px 0; white-space: normal; display: flex; justify-content: space-between;
+    align-items: flex-start; gap: 12px; text-align: right;
+  }
+  .table-scroll.responsive td[data-label]:not([data-label=''])::before {
+    content: attr(data-label); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--ink-soft); font-weight: 600; text-align: left; flex: none;
+  }
+  .table-scroll.responsive td:empty { display: none; }
+  .table-scroll.responsive td[data-label=''] { justify-content: flex-start; }
+  .table-scroll.responsive td[data-label=''] .row-actions { margin-left: auto; }
+}
+
 @media print {
   .rail, .no-print { display: none !important; }
   .app { display: block; }
@@ -200,4 +295,8 @@ tbody tr:last-child td { border-bottom: none; }
   table { min-width: 0; }
   body { background: #fff; }
   .page-head { border-bottom: 1px solid #000; }
+  .modal-backdrop.panel-backdrop { position: static; background: none; padding: 0; overflow: visible; }
+  .side-panel { position: static; width: 100% !important; height: auto; box-shadow: none; border: none; animation: none; }
+  .side-panel .modal-body { overflow: visible; }
+  .modal-head { border-bottom: 1px solid #000; }
 }

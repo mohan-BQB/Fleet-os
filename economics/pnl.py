@@ -13,7 +13,11 @@ from vehicles.models import Vehicle
 from .models import Expense
 
 ZERO = Decimal("0")
-DRIVER_COST_TYPES = [LedgerEntryType.WAGE, LedgerEntryType.BONUS]
+# Real driver-attributable costs. Not ADVANCE (a float, not a cost) or
+# ADVANCE_RETURN (cash coming back, nets the float to zero) - but
+# REIMBURSEMENT is a genuine company cost, just paid through the driver
+# instead of a vendor directly (see TripExpense.paid_from=driver_own).
+DRIVER_COST_TYPES = [LedgerEntryType.WAGE, LedgerEntryType.BONUS, LedgerEntryType.REIMBURSEMENT]
 
 
 def _sum(queryset, field):

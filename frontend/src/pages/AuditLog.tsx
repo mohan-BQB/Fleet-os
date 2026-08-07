@@ -45,58 +45,53 @@ export default function AuditLog() {
 
   return (
     <>
-      <header className="page-head">
-        <div>
-          <h1>Audit Log</h1>
-          <div className="sub">{count ? `${count} events` : 'Every create, edit, and login across your organization'}</div>
+      {error && <div className="error-banner">{error}</div>}
+
+      <section className="table-card">
+        <div className="table-head">
+          <h3>{count ? `${count} events` : 'Audit log'}</h3>
+          <select value={modelName} onChange={(e) => { setModelName(e.target.value); setPage(1); }}
+            className="no-print"
+            style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', fontSize: 13, minWidth: 180 }}>
+            <option value="">All record types</option>
+            {MODEL_NAMES.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
         </div>
-        <select value={modelName} onChange={(e) => { setModelName(e.target.value); setPage(1); }}
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13.5, minWidth: 200 }}>
-          <option value="">All record types</option>
-          {MODEL_NAMES.map((m) => <option key={m} value={m}>{m}</option>)}
-        </select>
-      </header>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr><th>When</th><th>User</th><th>Action</th><th>Record</th><th>Changes</th></tr>
+            </thead>
+            <tbody>
+              {entries?.map((entry) => (
+                <tr key={entry.id}>
+                  <td className="tnum">{DATE_TIME_FMT.format(new Date(entry.created_at))}</td>
+                  <td>{entry.user?.username ?? 'Unknown'}</td>
+                  <td>{actionLabel(entry.action)}</td>
+                  <td>{entry.model_name} <span style={{ color: 'var(--ink-soft)' }}>· {entry.object_id.slice(0, 8)}</span></td>
+                  <td>
+                    {Object.keys(entry.changes).length === 0 ? '—' : (
+                      <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12 }}>
+                        {Object.entries(entry.changes).map(([field, [before, after]]) => (
+                          <li key={field}>{prettifyField(field)}: {before || '—'} → {after || '—'}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {entries && entries.length === 0 && <div className="empty-state">No activity recorded yet.</div>}
+        </div>
+      </section>
 
-      <main className="content">
-        {error && <div className="error-banner">{error}</div>}
-
-        <section className="table-card">
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr><th>When</th><th>User</th><th>Action</th><th>Record</th><th>Changes</th></tr>
-              </thead>
-              <tbody>
-                {entries?.map((entry) => (
-                  <tr key={entry.id}>
-                    <td className="tnum">{DATE_TIME_FMT.format(new Date(entry.created_at))}</td>
-                    <td>{entry.user?.username ?? 'Unknown'}</td>
-                    <td>{actionLabel(entry.action)}</td>
-                    <td>{entry.model_name} <span style={{ color: 'var(--ink-soft)' }}>· {entry.object_id.slice(0, 8)}</span></td>
-                    <td>
-                      {Object.keys(entry.changes).length === 0 ? '—' : (
-                        <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12 }}>
-                          {Object.entries(entry.changes).map(([field, [before, after]]) => (
-                            <li key={field}>{prettifyField(field)}: {before || '—'} → {after || '—'}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {entries && entries.length === 0 && <div className="empty-state">No activity recorded yet.</div>}
-          </div>
-        </section>
-
-        {(page > 1 || hasNext) && (
-          <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
-            <button type="button" className="btn" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</button>
-            <button type="button" className="btn" disabled={!hasNext} onClick={() => setPage((p) => p + 1)}>Next</button>
-          </div>
-        )}
-      </main>
+      {(page > 1 || hasNext) && (
+        <div className="form-actions no-print" style={{ justifyContent: 'flex-start' }}>
+          <button type="button" className="btn" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</button>
+          <button type="button" className="btn" disabled={!hasNext} onClick={() => setPage((p) => p + 1)}>Next</button>
+        </div>
+      )}
     </>
   );
 }

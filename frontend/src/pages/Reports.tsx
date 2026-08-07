@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { listComplianceDocuments, listDrivers, listVehicles } from '../api/fleet';
-import { listLedgerEntries, listTripSheets } from '../api/operations';
-import { getDashboardPnL } from '../api/economics';
+import { listComplianceDocuments, listDrivers, listVehicleLoanInstallments, listVehicles } from '../api/fleet';
+import { listFuelLogs, listLedgerEntries, listTripSheets } from '../api/operations';
+import { getDashboardPnL, listExpenseHeads, listExpenses } from '../api/economics';
+import { listMaintenanceSchedules } from '../api/maintenance';
+import { listVendors, listVendorLedgerEntries } from '../api/vendors';
+import { listCustomers, listCustomerLedgerEntries } from '../api/customers';
 import type {
-  ComplianceDocument, DashboardPnL, Driver, DriverLedgerEntry, TripSheet, Vehicle,
+  ComplianceDocument, Customer, CustomerLedgerEntry, DashboardPnL, Driver, DriverLedgerEntry, Expense,
+  ExpenseHead, FuelLog, MaintenanceSchedule, TripSheet, Vehicle, VehicleLoanInstallment, Vendor, VendorLedgerEntry,
 } from '../api/types';
+import { CUSTOMER_LEDGER_CREDIT_TYPES, VENDOR_LEDGER_CREDIT_TYPES } from '../api/types';
 import { downloadCsv } from '../lib/csv';
 import { DownloadIcon, PrinterIcon } from '../components/icons';
+import AuditLog from './AuditLog';
 
 const DATE_FMT = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 const CURRENCY = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
@@ -26,15 +32,33 @@ function inRange(date: string, start: string, end: string) {
 }
 
 const SECTIONS = [
+  { key: 'compliance', label: 'Compliance Summary' },
+  { key: 'maintenance_due', label: 'Maintenance Due' },
+  { key: 'audit', label: 'Audit Log' },
   { key: 'utilization', label: 'Fleet Utilization' },
   { key: 'pnl', label: 'P&L Summary' },
-  { key: 'compliance', label: 'Compliance Summary' },
+  { key: 'fuel', label: 'Fuel Report' },
+  { key: 'expense_register', label: 'Expense Register' },
+  { key: 'vendor_customer_ledger', label: 'Vendor & Customer Ledger' },
+  { key: 'emi_due', label: 'EMI Due' },
   { key: 'ledger', label: 'Driver Ledger Summary' },
 ] as const;
 type SectionKey = typeof SECTIONS[number]['key'];
 
+function section(key: SectionKey) {
+  const s = SECTIONS.find((x) => x.key === key);
+  if (!s) throw new Error(`Unknown report section: ${key}`);
+  return s;
+}
+
+const SECTION_GROUPS: { label: string; keys: SectionKey[] }[] = [
+  { label: 'Compliance & audit', keys: ['compliance', 'maintenance_due', 'audit'] },
+  { label: 'Operational', keys: ['utilization'] },
+  { label: 'Financial', keys: ['pnl', 'fuel', 'expense_register', 'vendor_customer_ledger', 'emi_due', 'ledger'] },
+];
+
 export default function Reports() {
-  const [section, setSection] = useState<SectionKey>('utilization');
+  const [activeSection, setActiveSection] = useState<SectionKey>('compliance');
   const [start, setStart] = useState(monthStartIso());
   const [end, setEnd] = useState(todayIso());
 
@@ -44,11 +68,28 @@ export default function Reports() {
   const [documents, setDocuments] = useState<ComplianceDocument[]>([]);
   const [ledgerEntries, setLedgerEntries] = useState<DriverLedgerEntry[]>([]);
   const [pnl, setPnl] = useState<DashboardPnL | null>(null);
+  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expenseHeads, setExpenseHeads] = useState<ExpenseHead[]>([]);
+  const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [vendorEntries, setVendorEntries] = useState<VendorLedgerEntry[]>([]);
+  const [customerEntries, setCustomerEntries] = useState<CustomerLedgerEntry[]>([]);
+  const [loanInstallments, setLoanInstallments] = useState<VehicleLoanInstallment[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([listVehicles(), listDrivers(), listTripSheets(), listComplianceDocuments(), listLedgerEntries()])
-      .then(([v, d, t, doc, l]) => { setVehicles(v); setDrivers(d); setTripSheets(t); setDocuments(doc); setLedgerEntries(l); })
+    Promise.all([
+      listVehicles(), listDrivers(), listTripSheets(), listComplianceDocuments(), listLedgerEntries(),
+      listFuelLogs(), listVendors(), listExpenses(), listExpenseHeads(), listMaintenanceSchedules(),
+      listCustomers(), listVendorLedgerEntries(), listCustomerLedgerEntries(), listVehicleLoanInstallments(),
+    ])
+      .then(([v, d, t, doc, l, fl, ven, exp, heads, sch, cust, vle, cle, emi]) => {
+        setVehicles(v); setDrivers(d); setTripSheets(t); setDocuments(doc); setLedgerEntries(l);
+        setFuelLogs(fl); setVendors(ven); setExpenses(exp); setExpenseHeads(heads); setSchedules(sch);
+        setCustomers(cust); setVendorEntries(vle); setCustomerEntries(cle); setLoanInstallments(emi);
+      })
       .catch((err) => setError(err.message));
   }, []);
 
@@ -58,6 +99,7 @@ export default function Reports() {
 
   const vehicleName = (id: string) => vehicles.find((v) => v.id === id)?.registration_number ?? '—';
   const driverName = (id: string) => drivers.find((d) => d.id === id)?.name ?? '—';
+  const vendorName = (id: string | null) => vendors.find((v) => v.id === id)?.name ?? '—';
 
   return (
     <>
@@ -79,34 +121,62 @@ export default function Reports() {
       <main className="content">
         {error && <div className="error-banner">{error}</div>}
 
-        <div className="seg no-print" style={{ width: 'fit-content' }}>
-          {SECTIONS.map((s) => (
-            <button key={s.key} className={section === s.key ? 'on' : ''} onClick={() => setSection(s.key)}>
-              {s.label}
-            </button>
+        <div className="no-print" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          {SECTION_GROUPS.map((group) => (
+            <div key={group.label}>
+              <div className="nav-label" style={{ color: 'var(--ink-soft)', padding: 0, margin: '0 0 5px 2px' }}>{group.label}</div>
+              <div className="seg" style={{ width: 'fit-content' }}>
+                {group.keys.map((key) => (
+                  <button key={key} className={activeSection === key ? 'active' : ''} onClick={() => setActiveSection(key)}>
+                    {section(key).label}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
 
-        {section === 'utilization' && (
-          <UtilizationReport tripSheets={tripSheets} start={start} end={end} vehicleName={vehicleName} />
+        {activeSection === 'maintenance_due' && <MaintenanceDueReport schedules={schedules} vehicleName={vehicleName} />}
+        {activeSection === 'utilization' && (
+          <UtilizationReport tripSheets={tripSheets} vehicles={vehicles} start={start} end={end} vehicleName={vehicleName} />
         )}
-        {section === 'pnl' && <PnLReport pnl={pnl} />}
-        {section === 'compliance' && (
+        {activeSection === 'fuel' && <FuelReport fuelLogs={fuelLogs} vehicles={vehicles} vendorName={vendorName} start={start} end={end} />}
+        {activeSection === 'expense_register' && (
+          <ExpenseRegisterReport expenses={expenses} expenseHeads={expenseHeads} start={start} end={end} />
+        )}
+        {activeSection === 'vendor_customer_ledger' && (
+          <VendorCustomerLedgerReport
+            vendors={vendors} customers={customers} vendorEntries={vendorEntries} customerEntries={customerEntries}
+          />
+        )}
+        {activeSection === 'emi_due' && <EmiDueReport installments={loanInstallments} />}
+        {activeSection === 'pnl' && <PnLReport pnl={pnl} />}
+        {activeSection === 'compliance' && (
           <ComplianceReport documents={documents} start={start} end={end} />
         )}
-        {section === 'ledger' && (
+        {activeSection === 'ledger' && (
           <LedgerReport entries={ledgerEntries} start={start} end={end} driverName={driverName} />
         )}
+        {activeSection === 'audit' && <AuditLog />}
       </main>
     </>
   );
 }
 
 function UtilizationReport({
-  tripSheets, start, end, vehicleName,
-}: { tripSheets: TripSheet[]; start: string; end: string; vehicleName: (id: string) => string }) {
+  tripSheets, vehicles, start, end, vehicleName,
+}: { tripSheets: TripSheet[]; vehicles: Vehicle[]; start: string; end: string; vehicleName: (id: string) => string }) {
   const rows = useMemo(() => {
+    // Seeded from every active vehicle first (0-rows) so a truck with no
+    // trips this period shows up flagged idle instead of vanishing from the
+    // report entirely - the whole point of a utilization report is to catch
+    // exactly that vehicle.
     const byVehicle = new Map<string, { trips: number; distance: number; freight: number; days: Set<string> }>();
+    for (const v of vehicles) {
+      if (v.status === 'active' || v.status === 'in_service') {
+        byVehicle.set(v.id, { trips: 0, distance: 0, freight: 0, days: new Set<string>() });
+      }
+    }
     for (const ts of tripSheets) {
       if (ts.status === 'cancelled' || !inRange(ts.date, start, end)) continue;
       const entry = byVehicle.get(ts.vehicle) ?? { trips: 0, distance: 0, freight: 0, days: new Set<string>() };
@@ -119,7 +189,7 @@ function UtilizationReport({
     return [...byVehicle.entries()]
       .map(([vehicle, v]) => ({ vehicle, ...v, activeDays: v.days.size }))
       .sort((a, b) => b.distance - a.distance);
-  }, [tripSheets, start, end]);
+  }, [tripSheets, vehicles, start, end]);
 
   function exportCsv() {
     downloadCsv(
@@ -137,7 +207,7 @@ function UtilizationReport({
       </div>
       <div className="table-scroll">
         <table>
-          <thead><tr><th>Vehicle</th><th>Trips</th><th>Distance</th><th>Active days</th><th>Freight</th></tr></thead>
+          <thead><tr><th>Vehicle</th><th>Trips</th><th>Distance</th><th>Active days</th><th>Freight</th><th></th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.vehicle}>
@@ -146,11 +216,12 @@ function UtilizationReport({
                 <td className="tnum">{r.distance.toLocaleString('en-IN')} km</td>
                 <td className="tnum">{r.activeDays}</td>
                 <td className="tnum">{CURRENCY.format(r.freight)}</td>
+                <td>{r.trips === 0 && <span className="pill off">Idle</span>}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        {rows.length === 0 && <div className="empty-state">No trips in this period.</div>}
+        {rows.length === 0 && <div className="empty-state">No active vehicles.</div>}
       </div>
     </section>
   );
@@ -304,6 +375,414 @@ function LedgerReport({
         <div style={{ padding: '10px 18px', fontSize: 11.5, color: 'var(--ink-soft)' }}>
           Net = Wage + Bonus − Advance − Deduction. A simple settlement figure, not authoritative payroll.
         </div>
+      </div>
+    </section>
+  );
+}
+
+function MaintenanceDueReport({
+  schedules, vehicleName,
+}: { schedules: MaintenanceSchedule[]; vehicleName: (id: string) => string }) {
+  const rows = useMemo(
+    () => schedules
+      .filter((s) => s.status === 'active')
+      .map((s) => ({
+        ...s,
+        daysRemaining: s.days_remaining,
+      }))
+      .sort((a, b) => {
+        if (a.is_overdue !== b.is_overdue) return a.is_overdue ? -1 : 1;
+        return (a.next_due_date ?? '').localeCompare(b.next_due_date ?? '');
+      }),
+    [schedules],
+  );
+
+  function exportCsv() {
+    downloadCsv(
+      'maintenance-due.csv',
+      ['Vehicle', 'Part', 'Next due date', 'Next due km', 'Status'],
+      rows.map((r) => [vehicleName(r.vehicle), r.part_name, r.next_due_date ?? '', r.next_due_km ?? '', r.is_overdue ? 'Overdue' : 'Upcoming']),
+    );
+  }
+
+  return (
+    <section className="table-card">
+      <div className="table-head">
+        <h3>Maintenance due — fleet-wide</h3>
+        <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
+      </div>
+      <div className="table-scroll">
+        <table>
+          <thead><tr><th>Vehicle</th><th>Part</th><th>Next due</th><th>Remaining</th><th>Status</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td className="reg-no">{vehicleName(r.vehicle)}</td>
+                <td>{r.part_name}</td>
+                <td className="tnum">{r.next_due_date ? DATE_FMT.format(new Date(r.next_due_date)) : '—'}</td>
+                <td className="tnum">
+                  {r.km_remaining ? `${Number(r.km_remaining).toLocaleString('en-IN')} km` : r.daysRemaining != null ? `${r.daysRemaining} days` : '—'}
+                </td>
+                <td>
+                  {r.is_overdue
+                    ? <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Overdue</span>
+                    : <span className="pill on">Upcoming</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {rows.length === 0 && <div className="empty-state">No active maintenance schedules.</div>}
+      </div>
+    </section>
+  );
+}
+
+// Mileage is measured strictly between consecutive full-tank fills, not
+// per-fill - a partial top-up mid-week would otherwise throw off a naive
+// litres/distance calc. odometer delta since the prior full-tank fill,
+// divided by every litre added in between (including any partial fills).
+function FuelReport({
+  fuelLogs, vehicles, vendorName, start, end,
+}: {
+  fuelLogs: FuelLog[]; vehicles: Vehicle[]; vendorName: (id: string | null) => string; start: string; end: string;
+}) {
+  const rows = useMemo(() => {
+    const byVehicle = new Map<string, FuelLog[]>();
+    for (const log of fuelLogs) {
+      const list = byVehicle.get(log.vehicle) ?? [];
+      list.push(log);
+      byVehicle.set(log.vehicle, list);
+    }
+    const out: {
+      vehicle: string; litres: number; spend: number; avgRate: number; mileage: number | null; fills: number;
+    }[] = [];
+    for (const [vehicle, logsAll] of byVehicle) {
+      const logs = [...logsAll].sort((a, b) => a.date.localeCompare(b.date));
+      const inPeriod = logs.filter((l) => inRange(l.date, start, end));
+      if (inPeriod.length === 0) continue;
+      const litres = inPeriod.reduce((s, l) => s + Number(l.litres), 0);
+      const spend = inPeriod.reduce((s, l) => s + Number(l.amount), 0);
+
+      // Mileage: walk every fill in date order, tracking odometer + litres
+      // burned since the last full-tank fill; only a full-tank fill closes
+      // out a mileage sample.
+      let mileageSum = 0;
+      let mileageSamples = 0;
+      let sinceOdo: number | null = null;
+      let sinceLitres = 0;
+      for (const l of logs) {
+        if (l.odometer == null) continue;
+        const odo = Number(l.odometer);
+        if (sinceOdo == null) {
+          if (l.is_full_tank) { sinceOdo = odo; sinceLitres = 0; }
+          continue;
+        }
+        sinceLitres += Number(l.litres);
+        if (l.is_full_tank) {
+          const km = odo - sinceOdo;
+          if (km > 0 && sinceLitres > 0 && inRange(l.date, start, end)) {
+            mileageSum += km / sinceLitres;
+            mileageSamples += 1;
+          }
+          sinceOdo = odo;
+          sinceLitres = 0;
+        }
+      }
+      out.push({
+        vehicle, litres, spend, avgRate: litres > 0 ? spend / litres : 0,
+        mileage: mileageSamples > 0 ? mileageSum / mileageSamples : null, fills: inPeriod.length,
+      });
+    }
+    const fleetAvgMileage = (() => {
+      const withMileage = out.filter((r) => r.mileage != null);
+      if (withMileage.length === 0) return null;
+      return withMileage.reduce((s, r) => s + (r.mileage ?? 0), 0) / withMileage.length;
+    })();
+    return {
+      rows: out.sort((a, b) => b.spend - a.spend),
+      fleetAvgMileage,
+    };
+  }, [fuelLogs, start, end]);
+
+  const byStation = useMemo(() => {
+    const map = new Map<string, { litres: number; spend: number }>();
+    for (const l of fuelLogs) {
+      if (!inRange(l.date, start, end)) continue;
+      const key = l.fuel_station ?? '';
+      const row = map.get(key) ?? { litres: 0, spend: 0 };
+      row.litres += Number(l.litres);
+      row.spend += Number(l.amount);
+      map.set(key, row);
+    }
+    return [...map.entries()]
+      .map(([station, v]) => ({ station, ...v, avgRate: v.litres > 0 ? v.spend / v.litres : 0 }))
+      .sort((a, b) => b.spend - a.spend);
+  }, [fuelLogs, start, end]);
+
+  function vehicleReg(id: string) { return vehicles.find((v) => v.id === id)?.registration_number ?? '—'; }
+
+  function exportCsv() {
+    downloadCsv(
+      `fuel-report_${start}_${end}.csv`,
+      ['Vehicle', 'Fills', 'Litres', 'Spend', 'Avg rate/litre', 'Mileage (km/l)'],
+      rows.rows.map((r) => [vehicleReg(r.vehicle), r.fills, r.litres.toFixed(1), r.spend, r.avgRate.toFixed(2), r.mileage != null ? r.mileage.toFixed(2) : '']),
+    );
+  }
+
+  return (
+    <>
+      <section className="table-card">
+        <div className="table-head">
+          <h3>Fuel report — by vehicle</h3>
+          <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead><tr><th>Vehicle</th><th>Fills</th><th>Litres</th><th>Spend</th><th>Avg rate/litre</th><th>Mileage</th></tr></thead>
+            <tbody>
+              {rows.rows.map((r) => {
+                const flagged = r.mileage != null && rows.fleetAvgMileage != null && r.mileage < rows.fleetAvgMileage * 0.85;
+                return (
+                  <tr key={r.vehicle}>
+                    <td className="reg-no">{vehicleReg(r.vehicle)}</td>
+                    <td className="tnum">{r.fills}</td>
+                    <td className="tnum">{r.litres.toLocaleString('en-IN', { maximumFractionDigits: 1 })} L</td>
+                    <td className="tnum">{CURRENCY.format(r.spend)}</td>
+                    <td className="tnum">{CURRENCY.format(r.avgRate)}</td>
+                    <td className="tnum" style={{ color: flagged ? 'var(--critical)' : undefined, fontWeight: flagged ? 600 : undefined }}>
+                      {r.mileage != null ? `${r.mileage.toFixed(2)} km/L` : '—'}
+                      {flagged && ' ⚠'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {rows.rows.length === 0 && <div className="empty-state">No fuel logs in this period.</div>}
+          <div style={{ padding: '10px 18px', fontSize: 11.5, color: 'var(--ink-soft)' }}>
+            ⚠ = mileage more than 15% below the fleet average this period — worth checking for a leak or misreporting.
+            Mileage only counts full-tank-to-full-tank fills.
+          </div>
+        </div>
+      </section>
+
+      <section className="table-card">
+        <div className="table-head"><h3>By fuel station</h3></div>
+        <div className="table-scroll">
+          <table>
+            <thead><tr><th>Station</th><th>Litres</th><th>Spend</th><th>Avg rate/litre</th></tr></thead>
+            <tbody>
+              {byStation.map((r) => (
+                <tr key={r.station || 'unlisted'}>
+                  <td>{r.station ? vendorName(r.station) : 'Unlisted'}</td>
+                  <td className="tnum">{r.litres.toLocaleString('en-IN', { maximumFractionDigits: 1 })} L</td>
+                  <td className="tnum">{CURRENCY.format(r.spend)}</td>
+                  <td className="tnum">{CURRENCY.format(r.avgRate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {byStation.length === 0 && <div className="empty-state">No fuel logs in this period.</div>}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function ExpenseRegisterReport({
+  expenses, expenseHeads, start, end,
+}: {
+  expenses: Expense[]; expenseHeads: ExpenseHead[]; start: string; end: string;
+}) {
+  const rows = useMemo(() => {
+    const inPeriod = expenses.filter((e) => inRange(e.date, start, end));
+    const byHead = new Map<string, { group: string; name: string; amount: number; count: number }>();
+    for (const e of inPeriod) {
+      const head = expenseHeads.find((h) => h.id === e.expense_head);
+      const key = e.expense_head;
+      const row = byHead.get(key) ?? { group: head?.group ?? '—', name: head?.name ?? '—', amount: 0, count: 0 };
+      row.amount += Number(e.amount);
+      row.count += 1;
+      byHead.set(key, row);
+    }
+    return [...byHead.values()].sort((a, b) => b.amount - a.amount);
+  }, [expenses, expenseHeads, start, end]);
+
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+
+  // How many were entered vs. how many still need a decision - every
+  // expense starts pending regardless of who/what entered it (direct or
+  // auto-posted), so this is the one number that answers "is anyone
+  // actually signing off on these."
+  const approvalCounts = useMemo(() => {
+    const inPeriod = expenses.filter((e) => inRange(e.date, start, end));
+    const counts = { total: inPeriod.length, approved: 0, pending: 0, rejected: 0 };
+    for (const e of inPeriod) counts[e.approval_status] += 1;
+    return counts;
+  }, [expenses, start, end]);
+
+  function exportCsv() {
+    downloadCsv(
+      `expense-register_${start}_${end}.csv`,
+      ['Group', 'Head', 'Count', 'Amount'],
+      rows.map((r) => [humanize(r.group), r.name, r.count, r.amount]),
+    );
+  }
+
+  return (
+    <section className="table-card">
+      <div className="table-head">
+        <h3>
+          Expense register — by head — {approvalCounts.total} entered · {approvalCounts.approved} approved
+          {' '}· {approvalCounts.pending} pending{approvalCounts.rejected > 0 ? ` · ${approvalCounts.rejected} rejected` : ''}
+        </h3>
+        <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
+      </div>
+      <div className="table-scroll">
+        <table>
+          <thead><tr><th>Group</th><th>Head</th><th>Entries</th><th>Amount</th><th></th></tr></thead>
+          <tbody>
+            {rows.map((r) => {
+              const pct = total > 0 ? Math.round((r.amount / total) * 100) : 0;
+              return (
+                <tr key={r.name}>
+                  <td>{humanize(r.group)}</td>
+                  <td>{r.name}</td>
+                  <td className="tnum">{r.count}</td>
+                  <td className="tnum">{CURRENCY.format(r.amount)}</td>
+                  <td className="tnum" style={{ color: 'var(--ink-soft)', width: 40 }}>{pct}%</td>
+                </tr>
+              );
+            })}
+            <tr style={{ fontWeight: 700 }}>
+              <td colSpan={3}>Total</td>
+              <td className="tnum">{CURRENCY.format(total)}</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+        {rows.length === 0 && <div className="empty-state">No expenses in this period.</div>}
+        <div style={{ padding: '10px 18px', fontSize: 11.5, color: 'var(--ink-soft)' }}>
+          Excludes fuel — fuel is tracked separately (see the Fuel Report) and never posts as an Expense row.
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function VendorCustomerLedgerReport({
+  vendors, customers, vendorEntries, customerEntries,
+}: {
+  vendors: Vendor[]; customers: Customer[]; vendorEntries: VendorLedgerEntry[]; customerEntries: CustomerLedgerEntry[];
+}) {
+  type Row = { name: string; kind: 'Vendor' | 'Customer'; balance: number };
+
+  const rows = useMemo(() => {
+    function balanceFor<E extends { date: string; amount: string; entry_type: string }>(
+      entries: E[], creditTypes: Set<string>,
+    ) {
+      const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+      let balance = 0;
+      for (const e of sorted) balance += creditTypes.has(e.entry_type) ? Number(e.amount) : -Number(e.amount);
+      return balance;
+    }
+    const out: Row[] = [];
+    for (const v of vendors) {
+      const balance = balanceFor(vendorEntries.filter((e) => e.vendor === v.id), VENDOR_LEDGER_CREDIT_TYPES);
+      if (balance !== 0) out.push({ name: v.name, kind: 'Vendor', balance });
+    }
+    for (const c of customers) {
+      const balance = balanceFor(customerEntries.filter((e) => e.customer === c.id), CUSTOMER_LEDGER_CREDIT_TYPES);
+      if (balance !== 0) out.push({ name: c.name, kind: 'Customer', balance });
+    }
+    return out.sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
+  }, [vendors, customers, vendorEntries, customerEntries]);
+
+  const totalPayable = rows.filter((r) => r.kind === 'Vendor' && r.balance > 0).reduce((s, r) => s + r.balance, 0);
+  const totalReceivable = rows.filter((r) => r.kind === 'Customer' && r.balance > 0).reduce((s, r) => s + r.balance, 0);
+
+  function exportCsv() {
+    downloadCsv(
+      'vendor-customer-ledger.csv',
+      ['Party', 'Type', 'Balance'],
+      rows.map((r) => [r.name, r.kind, r.balance]),
+    );
+  }
+
+  return (
+    <section className="table-card">
+      <div className="table-head">
+        <h3>Vendor &amp; customer ledger — {CURRENCY.format(totalPayable)} payable · {CURRENCY.format(totalReceivable)} receivable</h3>
+        <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
+      </div>
+      <div className="table-scroll">
+        <table>
+          <thead><tr><th>Party</th><th>Type</th><th>Balance</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={`${r.kind}-${r.name}`}>
+                <td>{r.name}</td>
+                <td>{r.kind}</td>
+                <td className="tnum" style={{ fontWeight: 600, color: r.balance > 0 ? 'var(--warn)' : 'var(--good)' }}>
+                  {r.balance < 0 ? '−' : ''}{CURRENCY.format(Math.abs(r.balance))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {rows.length === 0 && <div className="empty-state">Every account is settled.</div>}
+      </div>
+    </section>
+  );
+}
+
+function EmiDueReport({ installments }: { installments: VehicleLoanInstallment[] }) {
+  const rows = useMemo(
+    () => installments
+      .filter((i) => !i.paid)
+      .sort((a, b) => {
+        if (a.is_overdue !== b.is_overdue) return a.is_overdue ? -1 : 1;
+        return a.due_date.localeCompare(b.due_date);
+      }),
+    [installments],
+  );
+
+  const totalDue = rows.reduce((s, r) => s + Number(r.amount), 0);
+
+  function exportCsv() {
+    downloadCsv(
+      'emi-due.csv',
+      ['Vehicle', 'Due date', 'Amount', 'Status'],
+      rows.map((r) => [r.registration_number, r.due_date, r.amount, r.is_overdue ? 'Overdue' : 'Upcoming']),
+    );
+  }
+
+  return (
+    <section className="table-card">
+      <div className="table-head">
+        <h3>EMI due — fleet-wide · {CURRENCY.format(totalDue)}</h3>
+        <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
+      </div>
+      <div className="table-scroll">
+        <table>
+          <thead><tr><th>Vehicle</th><th>Due date</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td className="reg-no">{r.registration_number}</td>
+                <td className="tnum">{DATE_FMT.format(new Date(r.due_date))}</td>
+                <td className="tnum">{CURRENCY.format(Number(r.amount))}</td>
+                <td>
+                  {r.is_overdue
+                    ? <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Overdue</span>
+                    : <span className="pill svc">Upcoming</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {rows.length === 0 && <div className="empty-state">Nothing due — every EMI is settled.</div>}
       </div>
     </section>
   );

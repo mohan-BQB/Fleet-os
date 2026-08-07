@@ -20,11 +20,29 @@ from .tenancy import get_current_tenant, get_current_user
 # ---------------------------------------------------------------------------
 # Tenant + identity
 # ---------------------------------------------------------------------------
+OPTIONAL_MODULES = [
+    ("tyres", "Tyres"),
+    ("maintenance", "Maintenance"),
+    ("parts_inventory", "Parts inventory"),
+    ("economics", "Economics"),
+    ("vendors", "Vendors"),
+    ("customers", "Customers"),
+    ("vehicle_expenses", "Vehicle expenses"),
+    ("driver_ledger", "Driver ledger"),
+    ("reports", "Reports"),
+    ("fuel_log", "Fuel log"),
+]
+
+
 class Organization(models.Model):
     """A tenant: one company that signs up. All data is scoped to it."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=200)
     is_active = models.BooleanField(default=True)
+    # Keys from OPTIONAL_MODULES this org does NOT have. Empty = everything
+    # enabled. Gates frontend nav visibility only (see console app) - not
+    # enforced at the API layer.
+    disabled_modules = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -111,10 +129,23 @@ class BaseModel(models.Model):
             "Hard delete is disabled. Use retire() to change status instead."
         )
 
-    def retire(self, status=Status.INACTIVE):
+    def retire(self, status=Status.INACTIVE, reason="", **extra):
         """Soft-retire: subclasses may override with domain statuses
-        (e.g. a vehicle -> 'sold', a driver -> 'relieved')."""
+        (e.g. a vehicle -> 'sold', a driver -> 'relieved'). `reason`, plus
+        any transition-specific details a subclass passes as `**extra`
+        (e.g. Vehicle.mark_sold's buyer/sale_amount), ride along into this
+        same save's audit entry rather than becoming new columns - see
+        save()'s `_audit_extra` handling below."""
         self.status = status
+        self._audit_extra = {"status_reason": reason, **extra}
+        self.save()
+
+    def activate(self, reason="", **extra):
+        """The reverse of retire(): back to Active. Covers the plain
+        Active<->Inactive masters (Customer, Vendor, Parts) generically;
+        Driver overrides with its own `rejoin()` name/semantics instead."""
+        self.status = Status.ACTIVE
+        self._audit_extra = {"status_reason": reason, **extra}
         self.save()
 
     # -- auto-stamp tenant/user + write audit on save -----------------------
@@ -133,6 +164,15 @@ class BaseModel(models.Model):
             self.updated_by = user
 
         changes = {} if is_new else self._diff_from_db()
+        # retire()/activate() details ride into this same audit entry
+        # rather than a separate one - self-clearing so they can't leak into
+        # a later, unrelated save() on the same in-memory instance.
+        extra = getattr(self, "_audit_extra", {})
+        if extra:
+            for key, value in extra.items():
+                if value not in (None, ""):
+                    changes[key] = ["", str(value)]
+            self._audit_extra = {}
         super().save(*args, **kwargs)
         record_audit(self, "create" if is_new else "update", changes)
 
@@ -156,6 +196,62 @@ class BaseModel(models.Model):
 
 def _str(value):
     return "" if value is None else str(value)
+
+
+# ---------------------------------------------------------------------------
+# Owner-editable access control
+# ---------------------------------------------------------------------------
+class PermissionAction(models.TextChoices):
+    VIEW = "view", "View"
+    ADD_EDIT = "add_edit", "Add / edit"
+    CHANGE_STATUS = "change_status", "Change status"
+
+
+class Permission(BaseModel):
+    """A DB-backed override on top of the hard-coded role defaults in
+    core.permissions.ROLE_DEFAULTS - what makes access owner-editable
+    instead of only code-editable. Exactly one of `role`/`user` is set (the
+    override's subject): a `user` row wins over a `role` row, which wins
+    over ROLE_DEFAULTS - see core.permissions.can(). Same one-of-two-columns
+    idiom vendors.VendorLedgerEntry uses for source_model/source_id, not a
+    polymorphic subject table.
+
+    Subclasses BaseModel purely for the free audit trail (every permission
+    change is logged automatically) and multi-tenancy - the no-hard-delete
+    behavior is along for the ride but isn't really the point here; there's
+    nothing to "retire", an override is just re-set to flip it back."""
+    role = models.CharField(max_length=20, choices=Role.choices, blank=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.CASCADE, related_name="permission_overrides",
+    )
+    section = models.CharField(max_length=30)
+    action = models.CharField(max_length=20, choices=PermissionAction.choices)
+    allowed = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "role", "section", "action"],
+                condition=models.Q(user__isnull=True),
+                name="unique_role_permission_override",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "user", "section", "action"],
+                condition=models.Q(role=""),
+                name="unique_user_permission_override",
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(role="", user__isnull=False) | (~models.Q(role="") & models.Q(user__isnull=True))
+                ),
+                name="permission_subject_is_role_xor_user",
+            ),
+        ]
+
+    def __str__(self):
+        subject = f"user:{self.user_id}" if self.user_id else f"role:{self.role}"
+        return f"{subject} {self.section}.{self.action} = {self.allowed}"
 
 
 # ---------------------------------------------------------------------------
@@ -192,6 +288,8 @@ class AuditAction(models.TextChoices):
     UPDATE = "update", "Update"
     RETIRE = "retire", "Retire"
     LOGIN = "login", "Login"
+    IMPERSONATE_START = "impersonate_start", "Impersonate start"
+    IMPERSONATE_STOP = "impersonate_stop", "Impersonate stop"
 
 
 class AuditLog(models.Model):

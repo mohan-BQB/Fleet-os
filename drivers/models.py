@@ -59,6 +59,9 @@ class Driver(BaseModel):
     )
     wage_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     has_app_login = models.BooleanField(default=False)
+    # Warn (not block) when a new advance would push outstanding advance
+    # past this. Blank = no cap for this driver.
+    advance_limit = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     # -- attachments --------------------------------------------------------
     photo = models.ImageField(upload_to="drivers/", null=True, blank=True)
@@ -77,8 +80,28 @@ class Driver(BaseModel):
         ]
         ordering = ["name"]
 
-    def retire(self, status=DriverStatus.RELIEVED):
-        super().retire(status)
+    ALLOWED_TRANSITIONS = {
+        DriverStatus.ACTIVE: {DriverStatus.ON_LEAVE, DriverStatus.RELIEVED},
+        DriverStatus.ON_LEAVE: {DriverStatus.ACTIVE, DriverStatus.RELIEVED},
+        DriverStatus.RELIEVED: {DriverStatus.ACTIVE},  # via rejoin() only
+    }
+
+    def change_status(self, new_status, reason=""):
+        allowed = self.ALLOWED_TRANSITIONS.get(self.status, set())
+        if new_status not in allowed:
+            raise ValueError(
+                f"Can't move a {DriverStatus(self.status).label} driver to {DriverStatus(new_status).label}."
+            )
+        self.retire(new_status, reason=reason)
+
+    def rejoin(self, reason=""):
+        """Relieved (or on leave) -> Active, same record - the one reverse
+        transition a Driver has, named for what it actually is rather than
+        the generic activate()."""
+        self.change_status(DriverStatus.ACTIVE, reason=reason)
+
+    def retire(self, status=DriverStatus.RELIEVED, reason=""):
+        super().retire(status, reason=reason)
 
     def __str__(self):
         return f"{self.name} ({self.code})" if self.code else self.name

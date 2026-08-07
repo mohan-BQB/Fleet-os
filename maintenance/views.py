@@ -11,11 +11,11 @@ class MaintenanceScheduleViewSet(RetireOnDestroyMixin, viewsets.ModelViewSet):
     queryset = MaintenanceSchedule.objects.select_related("vehicle").all()
     serializer_class = MaintenanceScheduleSerializer
     permission_classes = [HasCapability]
-    required_capability = "edit_vehicles_drivers"
+    required_section = "vehicles"
 
 
 class MaintenanceLogViewSet(RetireOnDestroyMixin, viewsets.ModelViewSet):
     queryset = MaintenanceLog.objects.select_related("vehicle", "schedule").all()
     serializer_class = MaintenanceLogSerializer
     permission_classes = [HasCapability]
-    required_capability = "edit_vehicles_drivers"
+    required_section = "vehicles"

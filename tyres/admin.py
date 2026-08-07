@@ -12,6 +12,6 @@ class TyreAdmin(admin.ModelAdmin):
 
 @admin.register(TyreService)
 class TyreServiceAdmin(admin.ModelAdmin):
-    list_display = ["vehicle", "service_type", "date", "odometer", "tyre", "new_position", "tread_depth_in"]
-    list_filter = ["service_type", "date"]
+    list_display = ["vehicle", "service_type", "date", "odometer", "tyre", "new_position", "tread_depth_in", "billing"]
+    list_filter = ["service_type", "billing", "date"]
     search_fields = ["vehicle__registration_number", "vendor"]

@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import Modal from './Modal';
 import {
-  createComplianceDocument, listComplianceDocuments, retireComplianceDocument, updateComplianceDocument,
+  createComplianceDocument, listComplianceDocuments, renewComplianceDocument, retireComplianceDocument,
+  updateComplianceDocument,
 } from '../api/fleet';
 import { ApiError } from '../api/client';
 import type { ComplianceDocument, DocumentInput } from '../api/types';
@@ -26,6 +27,10 @@ export default function ComplianceModal({ holderType, holderId, holderLabel, doc
   // null = list view; 'new' or a document = the add/edit form view, shown
   // in place of the list rather than as a second stacked modal.
   const [editing, setEditing] = useState<ComplianceDocument | 'new' | null>(null);
+  // Renewing is its own small form, not the full edit form - only the
+  // fresh number/dates matter, and it creates a new row rather than
+  // editing this one in place (see compliance.Document.renew).
+  const [renewingDoc, setRenewingDoc] = useState<ComplianceDocument | null>(null);
 
   function load() {
     listComplianceDocuments()
@@ -39,6 +44,14 @@ export default function ComplianceModal({ holderType, holderId, holderLabel, doc
     if (!confirm(`Retire this ${humanize(doc.doc_type)} record?`)) return;
     await retireComplianceDocument(doc.id);
     load();
+  }
+
+  if (renewingDoc !== null) {
+    return (
+      <Modal title={`Renew — ${humanize(renewingDoc.doc_type)}`} onClose={onClose}>
+        <RenewFields doc={renewingDoc} onCancel={() => setRenewingDoc(null)} onSaved={() => { setRenewingDoc(null); load(); }} />
+      </Modal>
+    );
   }
 
   if (editing !== null) {
@@ -82,6 +95,7 @@ export default function ComplianceModal({ holderType, holderId, holderLabel, doc
                 <td>
                   <div className="row-actions">
                     <button className="link-btn" onClick={() => setEditing(doc)}>Edit</button>
+                    <button className="link-btn" onClick={() => setRenewingDoc(doc)}>Renew</button>
                     <button className="link-btn danger" onClick={() => handleRetire(doc)}>Retire</button>
                   </div>
                 </td>
@@ -189,6 +203,56 @@ function DocumentFields({
         <button type="submit" className="btn primary" disabled={saving}>
           {saving ? 'Saving…' : initial ? 'Save changes' : 'Add document'}
         </button>
+      </div>
+    </form>
+  );
+}
+
+// Exported for the standalone Compliance.tsx page, which reuses this same
+// small renew form rather than duplicating it - this modal's own use above
+// stays unchanged.
+export function RenewFields({ doc, onCancel, onSaved }: { doc: ComplianceDocument; onCancel: () => void; onSaved: () => void }) {
+  const [validTill, setValidTill] = useState('');
+  const [docNumber, setDocNumber] = useState(doc.doc_number);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!validTill) { setError('Enter the new valid-till date.'); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      await renewComplianceDocument(doc.id, { valid_till: validTill, doc_number: docNumber });
+      onSaved();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not renew this document.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <p style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginTop: 0 }}>
+        This writes a new document with the fresh details and archives the current one - its history stays intact.
+      </p>
+      <div className="form-grid">
+        <div className="field">
+          <label htmlFor="renew_doc_number">Document number</label>
+          <input id="renew_doc_number" value={docNumber} onChange={(e) => setDocNumber(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="renew_valid_till">New valid till</label>
+          <input id="renew_valid_till" type="date" required value={validTill} onChange={(e) => setValidTill(e.target.value)} />
+        </div>
+      </div>
+
+      {error && <div className="form-error">{error}</div>}
+
+      <div className="form-actions">
+        <button type="button" className="btn" onClick={onCancel}>Back</button>
+        <button type="submit" className="btn primary" disabled={saving}>{saving ? 'Renewing…' : 'Renew'}</button>
       </div>
     </form>
   );

@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { apiFetch, toFormData } from './client';
 import type {
   MaintenanceLog, MaintenanceLogInput, MaintenanceSchedule, MaintenanceScheduleInput,
 } from './types';
@@ -11,8 +11,10 @@ export const updateMaintenanceSchedule = (id: string, input: MaintenanceSchedule
 export const retireMaintenanceSchedule = (id: string) =>
   apiFetch<null>(`/maintenance/schedules/${id}/`, { method: 'DELETE' });
 
+export type MaintenanceLogFiles = Partial<Record<'old_part_photo', File | null>>;
+
 export const listMaintenanceLogs = () => apiFetch<MaintenanceLog[]>('/maintenance/logs/');
-export const createMaintenanceLog = (input: MaintenanceLogInput) =>
-  apiFetch<MaintenanceLog>('/maintenance/logs/', { method: 'POST', body: JSON.stringify(input) });
+export const createMaintenanceLog = (input: MaintenanceLogInput, files: MaintenanceLogFiles = {}) =>
+  apiFetch<MaintenanceLog>('/maintenance/logs/', { method: 'POST', body: toFormData(input, files) });
 export const retireMaintenanceLog = (id: string) =>
   apiFetch<null>(`/maintenance/logs/${id}/`, { method: 'DELETE' });

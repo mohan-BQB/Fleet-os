@@ -8,10 +8,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true },
-      '/admin': { target: 'http://127.0.0.1:8000', changeOrigin: true },
-      '/static': { target: 'http://127.0.0.1:8000', changeOrigin: true },
-      '/media': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      // Port 8000 is a separate checkout's backend (a different Django
+      // process on this machine, see /Users/mohan/Documents/Truck without
+      // the "2") - this checkout's own backend runs on 8001 to avoid
+      // colliding with it.
+      '/api': { target: 'http://127.0.0.1:8001', changeOrigin: true },
+      '/admin': { target: 'http://127.0.0.1:8001', changeOrigin: true },
+      '/static': { target: 'http://127.0.0.1:8001', changeOrigin: true },
+      '/media': { target: 'http://127.0.0.1:8001', changeOrigin: true },
     },
   },
 })
