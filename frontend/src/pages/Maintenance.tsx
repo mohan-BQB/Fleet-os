@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import BillingPill from '../components/BillingPill';
 import { ApprovalStatusPill } from '../components/ApprovalStatusPill';
 import { LogForm } from '../components/maintenance/LogForm';
+import { ScheduleForm } from '../components/maintenance/ScheduleForm';
 import { DATE_FMT, humanize } from '../components/maintenance/utils';
 import { listVehicles } from '../api/fleet';
 import { listVendors } from '../api/vendors';
 import { listPartInventoryItems } from '../api/parts';
 import {
-  listMaintenanceLogs, listMaintenanceSchedules, retireMaintenanceLog,
+  listMaintenanceLogs, listMaintenanceSchedules, retireMaintenanceLog, retireMaintenanceSchedule,
 } from '../api/maintenance';
 import { getLastVehicleId, setLastVehicleId } from '../lib/lastVehicle';
 import { overdueMaintenanceCount } from '../lib/fleetAlerts';
@@ -27,6 +29,14 @@ function combinedApproval(a: ExpenseApprovalStatus | null, b: ExpenseApprovalSta
 }
 
 export default function Maintenance() {
+  const [searchParams] = useSearchParams();
+  // Was two separate nav entries/pages (Operations > Maintenance for
+  // logging, Masters > Maintenance for schedules/history) - merged into
+  // one page, one nav entry, an in-page tab switch instead - see
+  // Expense.tsx's own tab=all|heads / Tyres.tsx's log|specs for the same
+  // pattern.
+  const [pageTab, setPageTab] = useState<'log' | 'schedules'>(searchParams.get('tab') === 'schedules' ? 'schedules' : 'log');
+
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [inventoryItems, setInventoryItems] = useState<PartInventoryItem[]>([]);
@@ -34,7 +44,13 @@ export default function Maintenance() {
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [vehicleId, setVehicleId] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Log service tab only
   const [showLogForm, setShowLogForm] = useState(false);
+
+  // Schedules & history tab only
+  const [editingSchedule, setEditingSchedule] = useState<MaintenanceSchedule | null>(null);
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
 
   function load() {
     listMaintenanceSchedules().then(setSchedules).catch((err) => setError(err.message));
@@ -61,13 +77,17 @@ export default function Maintenance() {
   const vendorName = (id: string | null) => (id && vendors.find((v) => v.id === id)?.name) || '—';
 
   const vehicle = vehicles.find((v) => v.id === vehicleId);
+  // interval_km/last_done_odometer are unit-agnostic numbers - already
+  // correct in hours for hydraulic-metered vehicles (JCB, tractor). Just
+  // need the right label, same as Tyres.tsx/DriverDetailModal.
   const isHours = vehicle?.metering_unit === 'hours';
+  const unitLabel = isHours ? 'hrs' : 'km';
   const vehicleSchedules = useMemo(() => schedules.filter((s) => s.vehicle === vehicleId), [schedules, vehicleId]);
-  const vehicleLogs = useMemo(() => logs.filter((l) => l.vehicle === vehicleId), [logs, vehicleId]);
+  const vehicleLogs = useMemo(
+    () => [...logs.filter((l) => l.vehicle === vehicleId)].sort((a, b) => b.date.localeCompare(a.date)),
+    [logs, vehicleId],
+  );
   const activeSchedules = vehicleSchedules.filter((s) => s.status === 'active');
-  // Mirrors MaintenanceMaster.tsx's own summary tile - this page is where
-  // service actually gets logged, but had no visibility into what's due
-  // until now, unlike Tyres.tsx's own stat row.
   const overdueCount = activeSchedules.filter((s) => s.is_overdue).length;
 
   // Fleet-wide overdue count per vehicle, for the picker cards - same
@@ -84,13 +104,26 @@ export default function Maintenance() {
     await retireMaintenanceLog(l.id);
     load();
   }
+  async function handleRetireSchedule(s: MaintenanceSchedule) {
+    if (!confirm(`Stop tracking "${s.part_name}"? It'll be retired, not deleted.`)) return;
+    await retireMaintenanceSchedule(s.id);
+    load();
+  }
 
   return (
     <>
       <header className="page-head">
         <div>
           <h1>Maintenance</h1>
-          <div className="sub">Log service as it happens — schedules and full history live on the Masters Maintenance page</div>
+          <div className="sub">
+            {pageTab === 'log'
+              ? 'Log service as it happens for the selected vehicle.'
+              : 'Schedules, due dates & full service history.'}
+          </div>
+        </div>
+        <div className="seg">
+          <button className={pageTab === 'log' ? 'active' : ''} onClick={() => setPageTab('log')}>Log service</button>
+          <button className={pageTab === 'schedules' ? 'active' : ''} onClick={() => setPageTab('schedules')}>Schedules &amp; history</button>
         </div>
       </header>
 
@@ -139,80 +172,204 @@ export default function Maintenance() {
           </section>
         )}
 
-        <section className="table-card">
-          <div className="table-head">
-            <h3>Service log</h3>
-            <button className="btn primary" onClick={() => setShowLogForm(true)} disabled={!vehicleId}>
-              + Log service
-            </button>
-          </div>
-          <div className="table-scroll responsive">
-            <table>
-              <thead><tr><th>Part</th><th>Date</th><th>{isHours ? 'Hours' : 'Odometer'}</th><th>Old part disposal</th><th>New part cost</th><th>Vendor</th><th>Labour billing</th><th>Approval</th><th></th></tr></thead>
-              <tbody>
-                {vehicleLogs.map((l) => (
-                  <tr key={l.id}>
-                    <td data-label="Part">{l.part_name || '—'}</td>
-                    <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(l.date))}</td>
-                    <td data-label={isHours ? 'Hours' : 'Odometer'} className="tnum">{l.odometer ? Number(l.odometer).toLocaleString('en-IN') : '—'}</td>
-                    <td data-label="Old part disposal">
-                      {l.work_type === 'part_replacement' ? (
-                        <div style={{ fontSize: 12 }}>
-                          <span className="pill on">{humanize(l.disposal_plan || 'accounted')}</span>
-                          <div style={{ color: 'var(--ink-soft)', marginTop: 2 }}>
-                            {l.old_part_number && <span>#{l.old_part_number}</span>}
-                            {l.old_part_number && l.old_part_photo && ' · '}
-                            {l.old_part_photo && <a href={l.old_part_photo} target="_blank" rel="noreferrer">Photo</a>}
-                          </div>
-                        </div>
-                      ) : l.work_type === 'consumable' ? (
-                        <span className="pill off">Consumable</span>
-                      ) : '—'}
-                    </td>
-                    <td data-label="New part cost">
-                      {l.work_type === 'part_replacement' ? (
-                        l.part_source === 'from_inventory' ? (
+        {pageTab === 'log' && (
+          <section className="table-card">
+            <div className="table-head">
+              <h3>Service log</h3>
+              <button className="btn primary" onClick={() => setShowLogForm(true)} disabled={!vehicleId}>
+                + Log service
+              </button>
+            </div>
+            <div className="table-scroll responsive">
+              <table>
+                <thead><tr><th>Part</th><th>Date</th><th>{isHours ? 'Hours' : 'Odometer'}</th><th>Old part disposal</th><th>New part cost</th><th>Vendor</th><th>Labour billing</th><th>Approval</th><th></th></tr></thead>
+                <tbody>
+                  {vehicleLogs.map((l) => (
+                    <tr key={l.id}>
+                      <td data-label="Part">{l.part_name || '—'}</td>
+                      <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(l.date))}</td>
+                      <td data-label={isHours ? 'Hours' : 'Odometer'} className="tnum">{l.odometer ? Number(l.odometer).toLocaleString('en-IN') : '—'}</td>
+                      <td data-label="Old part disposal">
+                        {l.work_type === 'part_replacement' ? (
                           <div style={{ fontSize: 12 }}>
-                            <span className="pill svc">From inventory</span>
+                            <span className="pill on">{humanize(l.disposal_plan || 'accounted')}</span>
                             <div style={{ color: 'var(--ink-soft)', marginTop: 2 }}>
-                              {l.inventory_item_name || '—'}{l.part_quantity && ` × ${l.part_quantity}`}
+                              {l.old_part_number && <span>#{l.old_part_number}</span>}
+                              {l.old_part_number && l.old_part_photo && ' · '}
+                              {l.old_part_photo && <a href={l.old_part_photo} target="_blank" rel="noreferrer">Photo</a>}
                             </div>
                           </div>
-                        ) : l.part_source === 'new_purchase' ? (
-                          <div style={{ fontSize: 12 }}>
-                            <BillingPill billing="paid" amount={l.part_expense_amount} note="" isPaid={l.is_part_paid} />
-                            <div style={{ color: 'var(--ink-soft)', marginTop: 2 }}>
-                              {l.part_vendor ? vendorName(l.part_vendor) : l.part_unlisted_vendor_name ? `${l.part_unlisted_vendor_name} (not in system)` : '—'}
+                        ) : l.work_type === 'consumable' ? (
+                          <span className="pill off">Consumable</span>
+                        ) : '—'}
+                      </td>
+                      <td data-label="New part cost">
+                        {l.work_type === 'part_replacement' ? (
+                          l.part_source === 'from_inventory' ? (
+                            <div style={{ fontSize: 12 }}>
+                              <span className="pill svc">From inventory</span>
+                              <div style={{ color: 'var(--ink-soft)', marginTop: 2 }}>
+                                {l.inventory_item_name || '—'}{l.part_quantity && ` × ${l.part_quantity}`}
+                              </div>
                             </div>
+                          ) : l.part_source === 'new_purchase' ? (
+                            <div style={{ fontSize: 12 }}>
+                              <BillingPill billing="paid" amount={l.part_expense_amount} note="" isPaid={l.is_part_paid} />
+                              <div style={{ color: 'var(--ink-soft)', marginTop: 2 }}>
+                                {l.part_vendor ? vendorName(l.part_vendor) : l.part_unlisted_vendor_name ? `${l.part_unlisted_vendor_name} (not in system)` : '—'}
+                              </div>
+                            </div>
+                          ) : '—'
+                        ) : '—'}
+                      </td>
+                      <td data-label="Vendor">
+                        {l.vendor ? vendorName(l.vendor) : l.unlisted_vendor_name ? `${l.unlisted_vendor_name} (not in system)` : '—'}
+                        {(l.service_person_name || l.performed_by) && (
+                          <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
+                            {l.service_person_name
+                              ? <>By {l.service_person_name}{l.service_person_mobile && ` · ${l.service_person_mobile}`}</>
+                              : l.performed_by === 'internal' ? 'Own team' : l.performed_by === 'external' ? 'Outside person' : null}
                           </div>
-                        ) : '—'
-                      ) : '—'}
-                    </td>
-                    <td data-label="Vendor">
-                      {l.vendor ? vendorName(l.vendor) : l.unlisted_vendor_name ? `${l.unlisted_vendor_name} (not in system)` : '—'}
-                      {(l.service_person_name || l.performed_by) && (
-                        <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
-                          {l.service_person_name
-                            ? <>By {l.service_person_name}{l.service_person_mobile && ` · ${l.service_person_mobile}`}</>
-                            : l.performed_by === 'internal' ? 'Own team' : l.performed_by === 'external' ? 'Outside person' : null}
-                        </div>
-                      )}
-                    </td>
-                    <td data-label="Labour billing"><BillingPill billing={l.billing} amount={l.expense_amount} note={l.internal_note} isPaid={l.is_paid} /></td>
-                    <td data-label="Approval">
-                      {(() => {
-                        const status = combinedApproval(l.expense_approval_status, l.part_expense_approval_status);
-                        return status ? <ApprovalStatusPill label={APPROVAL_LABEL[status]} tone={APPROVAL_TONE[status]} /> : '—';
-                      })()}
-                    </td>
-                    <td data-label=""><button className="link-btn danger" onClick={() => handleRetireLog(l)}>Remove</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {vehicleLogs.length === 0 && <div className="empty-state">No service logged yet.</div>}
-          </div>
-        </section>
+                        )}
+                      </td>
+                      <td data-label="Labour billing"><BillingPill billing={l.billing} amount={l.expense_amount} note={l.internal_note} isPaid={l.is_paid} /></td>
+                      <td data-label="Approval">
+                        {(() => {
+                          const status = combinedApproval(l.expense_approval_status, l.part_expense_approval_status);
+                          return status ? <ApprovalStatusPill label={APPROVAL_LABEL[status]} tone={APPROVAL_TONE[status]} /> : '—';
+                        })()}
+                      </td>
+                      <td data-label=""><button className="link-btn danger" onClick={() => handleRetireLog(l)}>Remove</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {vehicleLogs.length === 0 && <div className="empty-state">No service logged yet.</div>}
+            </div>
+          </section>
+        )}
+
+        {pageTab === 'schedules' && (
+          <>
+            <section className="table-card">
+              <div className="table-head">
+                <h3>Schedules</h3>
+                <button className="btn primary" onClick={() => { setEditingSchedule(null); setShowScheduleForm(true); }} disabled={!vehicleId}>
+                  + Add schedule
+                </button>
+              </div>
+              <div className="table-scroll responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Part</th><th>Interval</th><th>Last done</th><th>Next due</th><th>Status</th><th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vehicleSchedules.map((s) => (
+                      <tr key={s.id}>
+                        <td data-label="Part">{s.part_name}</td>
+                        <td data-label="Interval">
+                          {[s.interval_km ? `${s.interval_km.toLocaleString('en-IN')} ${unitLabel}` : null, s.interval_days ? `${s.interval_days}d` : null]
+                            .filter(Boolean).join(' / ') || '—'}
+                        </td>
+                        <td data-label="Last done" className="tnum">
+                          {s.last_done_date ? DATE_FMT.format(new Date(s.last_done_date)) : '—'}
+                          {s.last_done_odometer && ` · ${Number(s.last_done_odometer).toLocaleString('en-IN')}`}
+                        </td>
+                        <td data-label="Next due" className="tnum">
+                          {s.next_due_date ? DATE_FMT.format(new Date(s.next_due_date)) : '—'}
+                          {s.next_due_km && ` · ${Number(s.next_due_km).toLocaleString('en-IN')}`}
+                        </td>
+                        <td data-label="Status">
+                          {s.status === 'inactive'
+                            ? <span className="pill off">Retired</span>
+                            : s.is_overdue
+                              ? <span className="pill" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Overdue</span>
+                              : <span className="pill on">OK</span>}
+                        </td>
+                        <td data-label="">
+                          <div className="row-actions">
+                            <button className="link-btn" onClick={() => { setEditingSchedule(s); setShowScheduleForm(true); }}>Edit</button>
+                            {s.status === 'active' && <button className="link-btn danger" onClick={() => handleRetireSchedule(s)}>Retire</button>}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {vehicleSchedules.length === 0 && (
+                  <div className="empty-state">No maintenance schedules yet. Add one for oil changes, filters, brake pads, etc.</div>
+                )}
+              </div>
+            </section>
+
+            <section className="table-card">
+              <div className="table-head">
+                <h3>Service history</h3>
+              </div>
+              <div className="table-scroll responsive">
+                <table>
+                  <thead><tr><th>Part</th><th>Date</th><th>{isHours ? 'Hours' : 'Odometer'}</th><th>Old part disposal</th><th>New part cost</th><th>Vendor</th><th>Labour billing</th></tr></thead>
+                  <tbody>
+                    {vehicleLogs.map((l) => (
+                      <tr key={l.id}>
+                        <td data-label="Part">{l.part_name || '—'}</td>
+                        <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(l.date))}</td>
+                        <td data-label={isHours ? 'Hours' : 'Odometer'} className="tnum">{l.odometer ? Number(l.odometer).toLocaleString('en-IN') : '—'}</td>
+                        <td data-label="Old part disposal">
+                          {l.work_type === 'part_replacement' ? (
+                            <div style={{ fontSize: 12 }}>
+                              <span className="pill on">{humanize(l.disposal_plan || 'accounted')}</span>
+                              <div style={{ color: 'var(--ink-soft)', marginTop: 2 }}>
+                                {l.old_part_number && <span>#{l.old_part_number}</span>}
+                                {l.old_part_number && l.old_part_photo && ' · '}
+                                {l.old_part_photo && <a href={l.old_part_photo} target="_blank" rel="noreferrer">Photo</a>}
+                              </div>
+                            </div>
+                          ) : l.work_type === 'consumable' ? (
+                            <span className="pill off">Consumable</span>
+                          ) : '—'}
+                        </td>
+                        <td data-label="New part cost">
+                          {l.work_type === 'part_replacement' ? (
+                            l.part_source === 'from_inventory' ? (
+                              <div style={{ fontSize: 12 }}>
+                                <span className="pill svc">From inventory</span>
+                                <div style={{ color: 'var(--ink-soft)', marginTop: 2 }}>
+                                  {l.inventory_item_name || '—'}{l.part_quantity && ` × ${l.part_quantity}`}
+                                </div>
+                              </div>
+                            ) : l.part_source === 'new_purchase' ? (
+                              <div style={{ fontSize: 12 }}>
+                                <BillingPill billing="paid" amount={l.part_expense_amount} note="" isPaid={l.is_part_paid} />
+                                <div style={{ color: 'var(--ink-soft)', marginTop: 2 }}>
+                                  {l.part_vendor ? vendorName(l.part_vendor) : l.part_unlisted_vendor_name ? `${l.part_unlisted_vendor_name} (not in system)` : '—'}
+                                </div>
+                              </div>
+                            ) : '—'
+                          ) : '—'}
+                        </td>
+                        <td data-label="Vendor">
+                          {l.vendor ? vendorName(l.vendor) : l.unlisted_vendor_name ? `${l.unlisted_vendor_name} (not in system)` : '—'}
+                          {(l.service_person_name || l.performed_by) && (
+                            <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
+                              {l.service_person_name
+                                ? <>By {l.service_person_name}{l.service_person_mobile && ` · ${l.service_person_mobile}`}</>
+                                : l.performed_by === 'internal' ? 'Own team' : l.performed_by === 'external' ? 'Outside person' : null}
+                            </div>
+                          )}
+                        </td>
+                        <td data-label="Labour billing"><BillingPill billing={l.billing} amount={l.expense_amount} note={l.internal_note} isPaid={l.is_paid} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {vehicleLogs.length === 0 && <div className="empty-state">No service history logged yet.</div>}
+              </div>
+            </section>
+          </>
+        )}
       </main>
 
       {showLogForm && vehicle && (
@@ -223,6 +380,14 @@ export default function Maintenance() {
           inventoryItems={inventoryItems}
           onClose={() => setShowLogForm(false)}
           onSaved={() => { setShowLogForm(false); load(); listPartInventoryItems().then(setInventoryItems).catch(() => {}); }}
+        />
+      )}
+      {showScheduleForm && vehicle && (
+        <ScheduleForm
+          initial={editingSchedule}
+          vehicle={vehicle}
+          onClose={() => setShowScheduleForm(false)}
+          onSaved={() => { setShowScheduleForm(false); load(); }}
         />
       )}
     </>

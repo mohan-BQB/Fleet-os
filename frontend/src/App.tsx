@@ -8,9 +8,7 @@ import Drivers from './pages/Drivers';
 import TripSheets from './pages/TripSheets';
 import FuelLog from './pages/FuelLog';
 import Tyres from './pages/Tyres';
-import TyresMaster from './pages/TyresMaster';
 import Maintenance from './pages/Maintenance';
-import MaintenanceMaster from './pages/MaintenanceMaster';
 import PartsInventory from './pages/PartsInventory';
 import Expense from './pages/Expense';
 import Approvals from './pages/Approvals';
@@ -83,8 +81,6 @@ export default function App() {
         <Route path="vehicle-emi" element={<VehicleEmi />} />
         <Route path="driver-ledger" element={<DriverLedger />} />
         <Route path="reports" element={<Reports />} />
-        <Route path="masters/tyres" element={<TyresMaster />} />
-        <Route path="masters/maintenance" element={<MaintenanceMaster />} />
         <Route path="masters/users" element={<RequireCompanyUsers><Team /></RequireCompanyUsers>} />
         <Route path="masters/company" element={<RequireCompanyUsers><CompanyProfile /></RequireCompanyUsers>} />
         <Route path="developer-dashboard" element={<RequireSuperuser><DeveloperDashboard /></RequireSuperuser>} />
@@ -92,6 +88,8 @@ export default function App() {
 
         {/* Old paths, kept as redirects so existing bookmarks/links land
             somewhere sensible instead of 404-ing. */}
+        <Route path="masters/tyres" element={<Navigate to="/tyres?tab=specs" replace />} />
+        <Route path="masters/maintenance" element={<Navigate to="/maintenance?tab=schedules" replace />} />
         <Route path="economics" element={<Navigate to="/expense" replace />} />
         <Route path="expense-heads" element={<Navigate to="/expense" replace />} />
         <Route path="vendors" element={<Navigate to="/customer-vendor" replace />} />

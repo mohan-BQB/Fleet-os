@@ -12,13 +12,12 @@ export default function VehiclePicker({
 }: {
   vehicles: Vehicle[]; value: string; onChange: (id: string) => void;
   // Optional per-vehicle "needs attention" count, scoped to whatever's
-  // relevant on the calling page (e.g. TyresMaster passes worn-tyre counts,
-  // MaintenanceMaster passes overdue-maintenance counts - see
-  // lib/fleetAlerts.ts). Omit entirely where it doesn't apply (Expense's
-  // vehicle-picker step has no use for it). Same signal Tyres.tsx/
-  // Maintenance.tsx's own picker cards show, just surfaced through this
-  // panel instead of a card grid, since a big grid doesn't fit every context
-  // this component is used in.
+  // relevant on the calling page (see lib/fleetAlerts.ts) - e.g. worn-tyre
+  // counts, overdue-maintenance counts. Omit entirely where it doesn't
+  // apply (Expense's vehicle-picker step has no use for it). Same signal
+  // Tyres.tsx/Maintenance.tsx's own picker cards show, just surfaced
+  // through this panel instead of a card grid, for any future caller in a
+  // tighter space (a card grid doesn't fit every context).
   alertCounts?: Map<string, number>;
 }) {
   const [open, setOpen] = useState(false);

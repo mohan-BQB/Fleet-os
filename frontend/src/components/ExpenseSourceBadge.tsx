@@ -33,8 +33,8 @@ const SOURCE_LABELS: Record<ExpenseSource, string> = {
   parts: 'Parts',
 };
 
-// Only Tyres/TyresMaster/Maintenance/MaintenanceMaster read lastVehicleId
-// (see lib/lastVehicle.ts) - Trip Sheets and Parts Inventory don't, so
+// Only Tyres/Maintenance read lastVehicleId (see lib/lastVehicle.ts) -
+// Trip Sheets and Parts Inventory don't, so
 // there's nothing to pre-select there yet.
 const ROUTES_WITH_VEHICLE_CONTEXT = new Set(['/tyres', '/maintenance']);
 

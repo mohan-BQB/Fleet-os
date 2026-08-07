@@ -4,8 +4,9 @@ import { useAuth, usePermission } from '../context/AuthContext';
 import { stopImpersonation } from '../api/console';
 import ChangePasswordModal from './ChangePasswordModal';
 import {
-  ApprovalIcon, BoxIcon, BuildingIcon, ChartIcon, ChevronIcon, ComplianceIcon, DriverIcon, FuelIcon, ProfitIcon,
-  ReceiptIcon, RouteIcon, ServerIcon, ShieldIcon, StoreIcon, TeamIcon, TruckIcon, TyreIcon, WalletIcon, WrenchIcon,
+  ApprovalIcon, BoxIcon, BuildingIcon, ChartIcon, ChevronIcon, ComplianceIcon, DriverIcon, FuelIcon, MenuIcon,
+  ProfitIcon, ReceiptIcon, RouteIcon, ServerIcon, ShieldIcon, StoreIcon, TeamIcon, TruckIcon, TyreIcon, WalletIcon,
+  WrenchIcon,
 } from './icons';
 import './Layout.css';
 
@@ -33,6 +34,9 @@ export default function Layout() {
   const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [showChangePassword, setShowChangePassword] = useState(false);
+  // Below 980px the .rail becomes a fixed slide-in drawer instead of a
+  // grid column (see Layout.css) - this just tracks whether it's open.
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const initials = (user?.username ?? '?').slice(0, 2).toUpperCase();
   const isSuperuser = user?.is_superuser === true;
   const disabledModules = new Set(user?.organization_disabled_modules ?? []);
@@ -92,7 +96,20 @@ export default function Layout() {
           <button className="btn" onClick={handleExitImpersonation}>Exit impersonation</button>
         </div>
       )}
-      <nav className="rail" aria-label="Primary">
+      {mobileNavOpen && (
+        <div className="nav-drawer-backdrop" onClick={() => setMobileNavOpen(false)} />
+      )}
+      <nav
+        className={`rail${mobileNavOpen ? ' open' : ''}`}
+        aria-label="Primary"
+        onClick={(e) => {
+          // Close on an actual nav link (an <a>, via NavLink), not on a
+          // NavGroup expand/collapse button - same element, different
+          // intent, so this can't just be a click handler on <NavLink>
+          // without touching all eighteen of them individually.
+          if ((e.target as HTMLElement).closest('a')) setMobileNavOpen(false);
+        }}
+      >
         <div className="brand">
           <div className="brand-mark"><TruckIcon /></div>
           <div>
@@ -109,12 +126,6 @@ export default function Layout() {
           {canSeeApprovals && (
             <NavLink to="/approvals" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
               <ApprovalIcon />Approvals
-            </NavLink>
-          )}
-
-          {canSeeCompliance && (
-            <NavLink to="/compliance" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-              <ComplianceIcon />Compliance
             </NavLink>
           )}
 
@@ -203,14 +214,9 @@ export default function Layout() {
                   <BoxIcon />Parts
                 </NavLink>
               )}
-              {canSeeVehicles && !disabledModules.has('tyres') && (
-                <NavLink to="/masters/tyres" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-                  <TyreIcon />Tyres
-                </NavLink>
-              )}
-              {canSeeVehicles && !disabledModules.has('maintenance') && (
-                <NavLink to="/masters/maintenance" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-                  <WrenchIcon />Maintenance
+              {canSeeCompliance && (
+                <NavLink to="/compliance" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+                  <ComplianceIcon />Compliance
                 </NavLink>
               )}
               {canSeeCompanyUsers && (
@@ -249,6 +255,17 @@ export default function Layout() {
           <button className="logout-btn" onClick={() => logout()}>Sign out</button>
         </div>
       </nav>
+
+      <div className="mobile-topbar">
+        <button
+          type="button" className="mobile-nav-toggle"
+          onClick={() => setMobileNavOpen((o) => !o)}
+          aria-label="Toggle navigation" aria-expanded={mobileNavOpen}
+        >
+          <MenuIcon />
+        </button>
+        <span className="mobile-topbar-brand">VELAN</span>
+      </div>
 
       <div className="main">
         <Outlet />

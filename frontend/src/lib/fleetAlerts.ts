@@ -1,8 +1,8 @@
 import type { ComplianceDocument, MaintenanceSchedule, Tyre, TyreService, VehicleLoanInstallment } from '../api/types';
 // The canonical "most recent tread reading for this tyre" lookup already
-// lived here (used by PositionMap.tsx/TyresMaster.tsx since before this
-// session) - this file had grown its own second copy without me checking
-// first. Reusing it instead of a third version living in api/types-land.
+// lived here (used by PositionMap.tsx/Tyres.tsx's Specs & history tab
+// since before this session) - this file had grown its own second copy
+// without me checking first. Reusing it instead of a third version.
 import { latestTreadDepth } from '../components/tyres/utils';
 
 // Tread depth below this is flagged as worth a look - a commonly-cited

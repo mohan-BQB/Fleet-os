@@ -9,6 +9,14 @@ const base = {
   strokeLinejoin: 'round' as const,
 };
 
+export const MenuIcon = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <path d="M4 6h16" />
+    <path d="M4 12h16" />
+    <path d="M4 18h16" />
+  </svg>
+);
+
 export const TruckIcon = ({ className }: IconProps) => (
   <svg {...base} className={className}>
     <path d="M3 16V9a1 1 0 0 1 1-1h9v8H3Z" />
