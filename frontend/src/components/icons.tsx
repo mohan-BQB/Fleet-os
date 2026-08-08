@@ -218,6 +218,13 @@ export const ServerIcon = ({ className }: IconProps) => (
   </svg>
 );
 
+export const SearchIcon = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m21 21-4.3-4.3" />
+  </svg>
+);
+
 export const ShieldIcon = ({ className }: IconProps) => (
   <svg {...base} className={className}>
     <path d="M12 3.5 5 6v6c0 4.2 3 7.4 7 8.5 4-1.1 7-4.3 7-8.5V6l-7-2.5Z" />

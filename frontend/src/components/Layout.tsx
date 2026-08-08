@@ -1,29 +1,63 @@
-import { useState, type ReactNode } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, usePermission } from '../context/AuthContext';
 import { stopImpersonation } from '../api/console';
 import ChangePasswordModal from './ChangePasswordModal';
+import CommandPalette, { type NavDestination } from './CommandPalette';
 import {
   ApprovalIcon, BoxIcon, BuildingIcon, ChartIcon, ChevronIcon, ComplianceIcon, DriverIcon, FuelIcon, MenuIcon,
-  ProfitIcon, ReceiptIcon, RouteIcon, ServerIcon, ShieldIcon, StoreIcon, TeamIcon, TruckIcon, TyreIcon, WalletIcon,
-  WrenchIcon,
+  ProfitIcon, ReceiptIcon, RouteIcon, SearchIcon, ServerIcon, ShieldIcon, StoreIcon, TeamIcon, TruckIcon, TyreIcon,
+  WalletIcon, WrenchIcon,
 } from './icons';
 import './Layout.css';
 
+// Collapse state persists per user/browser (not per session) and per
+// group id - an accountant who always wants Settlements open just leaves
+// it that way once. The group containing the page you're currently on
+// still auto-expands on top of that (see the effect below), without
+// overwriting what you chose for the others.
+function useNavGroupOpen(id: string, activeNow: boolean) {
+  const key = `velan.nav.${id}.open`;
+  const [open, setOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved !== null) return saved === '1';
+    } catch {
+      /* localStorage unavailable (private mode etc.) - fall through to the default */
+    }
+    return activeNow;
+  });
+
+  useEffect(() => {
+    if (activeNow) setOpen(true);
+  }, [activeNow]);
+
+  function toggle() {
+    setOpen((o) => {
+      const next = !o;
+      try { localStorage.setItem(key, next ? '1' : '0'); } catch { /* ignore */ }
+      return next;
+    });
+  }
+
+  return [open, toggle] as const;
+}
+
 function NavGroup({
-  label, defaultOpen = true, children,
-}: { label: string; defaultOpen?: boolean; children: ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen);
+  id, label, activeNow, count, children,
+}: { id: string; label: string; activeNow: boolean; count: number; children: ReactNode }) {
+  const [open, toggle] = useNavGroupOpen(id, activeNow);
   return (
     <>
       <button
         type="button"
         className={`nav-label-btn${open ? ' expanded' : ''}`}
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         aria-expanded={open}
       >
         <ChevronIcon className="nav-chevron" />
         <span className="nav-label">{label}</span>
+        {!open && <span className="count-badge">{count}</span>}
       </button>
       {open && <div className="nav-collapsible">{children}</div>}
     </>
@@ -33,10 +67,12 @@ function NavGroup({
 export default function Layout() {
   const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showChangePassword, setShowChangePassword] = useState(false);
   // Below 980px the .rail becomes a fixed slide-in drawer instead of a
   // grid column (see Layout.css) - this just tracks whether it's open.
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
   const initials = (user?.username ?? '?').slice(0, 2).toUpperCase();
   const isSuperuser = user?.is_superuser === true;
   const disabledModules = new Set(user?.organization_disabled_modules ?? []);
@@ -51,6 +87,7 @@ export default function Layout() {
   const canSeeFuelLog = usePermission('fuel_log') || isDriver;
   const canSeeMoneyBox = usePermission('money_box_settlement');
   const canSeeReports = usePermission('reports');
+  const showReportsLink = canSeeReports && !disabledModules.has('reports');
   const canSeeVehicles = usePermission('vehicles');
   const canSeeDrivers = usePermission('drivers');
   const canSeeExpenses = usePermission('expenses');
@@ -69,18 +106,88 @@ export default function Layout() {
   // same reasoning as canSeeApprovals above.
   const canSeeCompliance = canSeeVehicles || canSeeDrivers;
 
-  const showOperations =
-    (canSeeTripWorkCards && !disabledModules.has('trip_work_cards'))
-    || (canSeeFuelLog && !disabledModules.has('fuel_log'))
-    || (canSeeVehicles && !disabledModules.has('tyres'))
-    || (canSeeVehicles && !disabledModules.has('maintenance'));
-  const showSettlements =
-    (canSeeExpenses && !disabledModules.has('economics'))
-    || (canSeeMoneyBox && !disabledModules.has('driver_ledger'))
-    || canSeeCustomersVendors
-    || canSeeVehicles;
+  const showTripWorkCards = canSeeTripWorkCards && !disabledModules.has('trip_work_cards');
+  const showFuelLog = canSeeFuelLog && !disabledModules.has('fuel_log');
+  const showTyres = canSeeVehicles && !disabledModules.has('tyres');
+  const showMaintenance = canSeeVehicles && !disabledModules.has('maintenance');
+  const showOperations = showTripWorkCards || showFuelLog || showTyres || showMaintenance;
+  const operationsCount = [showTripWorkCards, showFuelLog, showTyres, showMaintenance].filter(Boolean).length;
+
+  const showExpensesLink = canSeeExpenses && !disabledModules.has('economics');
+  const showDriverLedger = canSeeMoneyBox && !disabledModules.has('driver_ledger');
+  const showVendorCustomerPayments = canSeeCustomersVendors;
+  const showVehicleEmi = canSeeVehicles;
+  const showSettlements = showExpensesLink || showDriverLedger || showVendorCustomerPayments || showVehicleEmi;
+  const settlementsCount = [showExpensesLink, showDriverLedger, showVendorCustomerPayments, showVehicleEmi].filter(Boolean).length;
+
+  const showCustomerVendor = canSeeCustomersVendors && (!disabledModules.has('vendors') || !disabledModules.has('customers'));
+  const showParts = canSeeVehicles && !disabledModules.has('parts_inventory');
   const showMasters =
     canSeeVehicles || canSeeDrivers || canSeeExpenses || canSeeCustomersVendors || canSeeCompanyUsers;
+  const mastersCount = [
+    canSeeVehicles, canSeeDrivers, showExpensesLink, showCustomerVendor, showParts, canSeeCompliance,
+    canSeeCompanyUsers, canSeeCompanyUsers,
+  ].filter(Boolean).length;
+
+  const OPERATIONS_PATHS = ['/trip-sheets', '/fuel-log', '/tyres', '/maintenance'];
+  const SETTLEMENTS_PATHS = ['/expense', '/driver-ledger', '/vendor-customer-payments', '/vehicle-emi'];
+  const MASTERS_PATHS = [
+    '/vehicles', '/drivers', '/expense', '/customer-vendor', '/parts-inventory', '/compliance',
+    '/masters/users', '/masters/company',
+  ];
+  const operationsActive = OPERATIONS_PATHS.includes(location.pathname);
+  const settlementsActive = SETTLEMENTS_PATHS.includes(location.pathname);
+  const mastersActive = MASTERS_PATHS.includes(location.pathname);
+
+  // Flattened for the "Jump to..." palette (⌘K / Ctrl K, or the search
+  // pill below) - built from the same visibility flags the rail itself
+  // uses, so the palette never offers a destination the rail wouldn't.
+  const destinations = useMemo(() => {
+    const list: NavDestination[] = [
+      { label: 'Dashboard', path: '/', icon: <TruckIcon />, section: 'General' },
+    ];
+    if (canSeeApprovals) list.push({ label: 'Approvals', path: '/approvals', icon: <ApprovalIcon />, section: 'General' });
+    if (showTripWorkCards) list.push({ label: 'Trip & work cards', path: '/trip-sheets', icon: <RouteIcon />, section: 'Operations' });
+    if (showFuelLog) list.push({ label: 'Fuel log', path: '/fuel-log', icon: <FuelIcon />, section: 'Operations' });
+    if (showTyres) list.push({ label: 'Tyres', path: '/tyres', icon: <TyreIcon />, section: 'Operations' });
+    if (showMaintenance) list.push({ label: 'Maintenance', path: '/maintenance', icon: <WrenchIcon />, section: 'Operations' });
+    if (showExpensesLink) list.push({ label: 'Expenses', path: '/expense', icon: <ReceiptIcon />, section: 'Settlements' });
+    if (showDriverLedger) list.push({ label: 'Driver ledger', path: '/driver-ledger', icon: <WalletIcon />, section: 'Settlements' });
+    if (showVendorCustomerPayments) list.push({ label: 'Vendor & customer payments', path: '/vendor-customer-payments', icon: <StoreIcon />, section: 'Settlements' });
+    if (showVehicleEmi) list.push({ label: 'Vehicle EMI', path: '/vehicle-emi', icon: <ProfitIcon />, section: 'Settlements' });
+    if (showReportsLink) list.push({ label: 'Reports', path: '/reports', icon: <ChartIcon />, section: 'General' });
+    if (canSeeVehicles) list.push({ label: 'Vehicle', path: '/vehicles', icon: <TruckIcon />, section: 'Masters' });
+    if (canSeeDrivers) list.push({ label: 'Driver', path: '/drivers', icon: <DriverIcon />, section: 'Masters' });
+    if (showExpensesLink) list.push({ label: 'Expense categories', path: '/expense?categories=1', icon: <ReceiptIcon />, section: 'Masters' });
+    if (showCustomerVendor) list.push({ label: 'Customer & Vendor', path: '/customer-vendor', icon: <StoreIcon />, section: 'Masters' });
+    if (showParts) list.push({ label: 'Parts', path: '/parts-inventory', icon: <BoxIcon />, section: 'Masters' });
+    if (canSeeCompliance) list.push({ label: 'Compliance', path: '/compliance', icon: <ComplianceIcon />, section: 'Masters' });
+    if (canSeeCompanyUsers) {
+      list.push({ label: 'Users', path: '/masters/users', icon: <TeamIcon />, section: 'Masters' });
+      list.push({ label: 'Company profile', path: '/masters/company', icon: <BuildingIcon />, section: 'Masters' });
+    }
+    if (isSuperuser) {
+      list.push({ label: 'Developer Dashboard', path: '/developer-dashboard', icon: <ServerIcon />, section: 'Platform' });
+      list.push({ label: 'Control Center', path: '/control-center', icon: <ShieldIcon />, section: 'Platform' });
+    }
+    return list;
+  }, [
+    canSeeApprovals, showTripWorkCards, showFuelLog, showTyres, showMaintenance, showExpensesLink, showDriverLedger,
+    showVendorCustomerPayments, showVehicleEmi, showReportsLink, canSeeVehicles, canSeeDrivers,
+    showCustomerVendor, showParts, canSeeCompliance, canSeeCompanyUsers, isSuperuser,
+  ]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowPalette(true);
+        setMobileNavOpen(false);
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   async function handleExitImpersonation() {
     await stopImpersonation();
@@ -118,6 +225,15 @@ export default function Layout() {
           </div>
         </div>
 
+        <button
+          type="button" className="nav-search-pill"
+          onClick={() => { setShowPalette(true); setMobileNavOpen(false); }}
+        >
+          <SearchIcon />
+          Jump to…
+          <span className="kbd">⌘K</span>
+        </button>
+
         <div className="nav-group">
           <NavLink to="/" end className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <TruckIcon />Dashboard
@@ -130,101 +246,99 @@ export default function Layout() {
           )}
 
           {showOperations && (
-            <>
-              <div className="nav-label">Operations</div>
-              {canSeeTripWorkCards && !disabledModules.has('trip_work_cards') && (
+            <NavGroup id="operations" label="Operations" activeNow={operationsActive} count={operationsCount}>
+              {showTripWorkCards && (
                 <NavLink to="/trip-sheets" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
                   <RouteIcon />Trip &amp; work cards
                 </NavLink>
               )}
-              {canSeeFuelLog && !disabledModules.has('fuel_log') && (
+              {showFuelLog && (
                 <NavLink to="/fuel-log" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
                   <FuelIcon />Fuel log
                 </NavLink>
               )}
-              {canSeeVehicles && !disabledModules.has('tyres') && (
+              {showTyres && (
                 <NavLink to="/tyres" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
                   <TyreIcon />Tyres
                 </NavLink>
               )}
-              {canSeeVehicles && !disabledModules.has('maintenance') && (
+              {showMaintenance && (
                 <NavLink to="/maintenance" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
                   <WrenchIcon />Maintenance
                 </NavLink>
               )}
-            </>
+            </NavGroup>
           )}
 
           {showSettlements && (
-            <>
-              <div className="nav-label">Settlements</div>
-              {canSeeExpenses && !disabledModules.has('economics') && (
+            <NavGroup id="settlements" label="Settlements" activeNow={settlementsActive} count={settlementsCount}>
+              {showExpensesLink && (
                 <NavLink to="/expense" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
                   <ReceiptIcon />Expenses
                 </NavLink>
               )}
-              {canSeeMoneyBox && !disabledModules.has('driver_ledger') && (
-                <NavLink to="/driver-ledger" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+              {showDriverLedger && (
+                <NavLink to="/driver-ledger" className={({ isActive }) => `nav-item secondary${isActive ? ' active' : ''}`}>
                   <WalletIcon />Driver ledger
                 </NavLink>
               )}
-              {canSeeCustomersVendors && (
-                <NavLink to="/vendor-customer-payments" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+              {showVendorCustomerPayments && (
+                <NavLink to="/vendor-customer-payments" className={({ isActive }) => `nav-item secondary${isActive ? ' active' : ''}`}>
                   <StoreIcon />Vendor &amp; customer payments
                 </NavLink>
               )}
-              {canSeeVehicles && (
-                <NavLink to="/vehicle-emi" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+              {showVehicleEmi && (
+                <NavLink to="/vehicle-emi" className={({ isActive }) => `nav-item secondary${isActive ? ' active' : ''}`}>
                   <ProfitIcon />Vehicle EMI
                 </NavLink>
               )}
-            </>
+            </NavGroup>
           )}
 
-          {canSeeReports && !disabledModules.has('reports') && (
+          {showReportsLink && (
             <NavLink to="/reports" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
               <ChartIcon />Reports
             </NavLink>
           )}
 
           {showMasters && (
-            <NavGroup label="Masters">
+            <NavGroup id="masters" label="Masters" activeNow={mastersActive} count={mastersCount}>
               {canSeeVehicles && (
-                <NavLink to="/vehicles" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+                <NavLink to="/vehicles" className={({ isActive }) => `nav-item secondary${isActive ? ' active' : ''}`}>
                   <TruckIcon />Vehicle
                 </NavLink>
               )}
               {canSeeDrivers && (
-                <NavLink to="/drivers" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+                <NavLink to="/drivers" className={({ isActive }) => `nav-item secondary${isActive ? ' active' : ''}`}>
                   <DriverIcon />Driver
                 </NavLink>
               )}
-              {canSeeExpenses && !disabledModules.has('economics') && (
-                <NavLink to="/expense?categories=1" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+              {showExpensesLink && (
+                <NavLink to="/expense?categories=1" className={({ isActive }) => `nav-item secondary${isActive ? ' active' : ''}`}>
                   <ReceiptIcon />Expense categories
                 </NavLink>
               )}
-              {canSeeCustomersVendors && (!disabledModules.has('vendors') || !disabledModules.has('customers')) && (
-                <NavLink to="/customer-vendor" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+              {showCustomerVendor && (
+                <NavLink to="/customer-vendor" className={({ isActive }) => `nav-item secondary${isActive ? ' active' : ''}`}>
                   <StoreIcon />Customer &amp; Vendor
                 </NavLink>
               )}
-              {canSeeVehicles && !disabledModules.has('parts_inventory') && (
-                <NavLink to="/parts-inventory" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+              {showParts && (
+                <NavLink to="/parts-inventory" className={({ isActive }) => `nav-item secondary${isActive ? ' active' : ''}`}>
                   <BoxIcon />Parts
                 </NavLink>
               )}
               {canSeeCompliance && (
-                <NavLink to="/compliance" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+                <NavLink to="/compliance" className={({ isActive }) => `nav-item secondary${isActive ? ' active' : ''}`}>
                   <ComplianceIcon />Compliance
                 </NavLink>
               )}
               {canSeeCompanyUsers && (
                 <>
-                  <NavLink to="/masters/users" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+                  <NavLink to="/masters/users" className={({ isActive }) => `nav-item secondary${isActive ? ' active' : ''}`}>
                     <TeamIcon />Users
                   </NavLink>
-                  <NavLink to="/masters/company" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+                  <NavLink to="/masters/company" className={({ isActive }) => `nav-item secondary${isActive ? ' active' : ''}`}>
                     <BuildingIcon />Company profile
                   </NavLink>
                 </>
@@ -235,10 +349,10 @@ export default function Layout() {
           {isSuperuser && (
             <>
               <div className="nav-label">Platform</div>
-              <NavLink to="/developer-dashboard" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+              <NavLink to="/developer-dashboard" className={({ isActive }) => `nav-item secondary${isActive ? ' active' : ''}`}>
                 <ServerIcon />Developer Dashboard
               </NavLink>
-              <NavLink to="/control-center" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+              <NavLink to="/control-center" className={({ isActive }) => `nav-item secondary${isActive ? ' active' : ''}`}>
                 <ShieldIcon />Control Center
               </NavLink>
             </>
@@ -265,6 +379,13 @@ export default function Layout() {
           <MenuIcon />
         </button>
         <span className="mobile-topbar-brand">VELAN</span>
+        <button
+          type="button" className="mobile-nav-toggle" style={{ marginLeft: 'auto' }}
+          onClick={() => setShowPalette(true)}
+          aria-label="Jump to…"
+        >
+          <SearchIcon />
+        </button>
       </div>
 
       <div className="main">
@@ -272,6 +393,7 @@ export default function Layout() {
       </div>
 
       {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
+      {showPalette && <CommandPalette destinations={destinations} onClose={() => setShowPalette(false)} />}
     </div>
   );
 }
