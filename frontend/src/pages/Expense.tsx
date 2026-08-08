@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactElement } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Modal from '../components/Modal';
+import SidePanel from '../components/SidePanel';
 import MarkPaidModal from '../components/MarkPaidModal';
 import AuditHistory from '../components/AuditHistory';
 import { ApprovalDecisionModal } from '../components/ApprovalDecisionModal';
@@ -22,7 +23,7 @@ import {
   rejectExpense, retireExpense, updateExpense, updateExpenseHead,
 } from '../api/economics';
 import {
-  approveFuelLog, listFuelLogs, listLedgerEntries, listTripSheets, rejectFuelLog,
+  approveFuelLog, listFuelLogs, listLedgerEntries, listTripSheets, markFuelLogPaid, rejectFuelLog,
 } from '../api/operations';
 import { ApiError } from '../api/client';
 import {
@@ -31,7 +32,7 @@ import {
 } from '../lib/statusDisplay';
 import {
   EXPENSE_HEAD_GROUPS, VENDOR_PAYMENT_MODES, type Driver, type DriverLedgerEntry,
-  type Expense as ExpenseRecord, type ExpenseApprovalStatus, type FuelLog, type MaintenanceSchedule,
+  type Expense as ExpenseRecord, type FuelLog, type MaintenanceSchedule,
   type PartInventoryItem, type ExpenseHead, type ExpenseHeadGroup, type ExpenseHeadInput, type ExpenseInput,
   type TripSheet, type Vehicle, type VehicleLoanInstallment, type Vendor,
 } from '../api/types';
@@ -49,12 +50,11 @@ function humanize(value: string) {
 // too (this view mirrors what the P&L already counts, not the full ledger).
 const DRIVER_COST_ENTRY_TYPES = new Set(['wage', 'bonus', 'reimbursement']);
 
-// The "All costs" tab's row shape - a thin discriminated union over four
-// sources that deliberately stay separate records (see the fuelLogs/
-// installments state docstring in Expense() for why), tagged with enough
-// to render and act on each kind without a forced-generic status model
-// (EMI/driver-wage rows have no approve/reject concept at all, unlike
-// Expense/Fuel Log).
+// The ledger's row shape - a thin discriminated union over four sources
+// that deliberately stay separate records (see the fuelLogs/installments
+// state docstring in Expense() for why), tagged with enough to render and
+// act on each kind without a forced-generic status model (EMI/driver-wage
+// rows have no approve/reject concept at all, unlike Expense/Fuel Log).
 type CostRow =
   | { kind: 'expense'; id: string; date: string; exp: ExpenseRecord }
   | { kind: 'fuel'; id: string; date: string; log: FuelLog }
@@ -70,6 +70,23 @@ function costRowAmount(row: CostRow): number {
   if (row.kind === 'fuel') return Number(row.log.amount);
   if (row.kind === 'emi') return Number(row.inst.amount);
   return Number(row.entry.amount);
+}
+
+// Only expense/fuel/EMI carry a vehicle at all - a driver-cost row (salary,
+// bonus) isn't tied to one, same as a "Company" direct expense isn't.
+// Used by the vehicle filter so it applies uniformly across all four kinds
+// instead of only working on the expense-only slice like before.
+function rowVehicleId(row: CostRow): string | null {
+  if (row.kind === 'expense') return row.exp.vehicle;
+  if (row.kind === 'fuel') return row.log.vehicle;
+  if (row.kind === 'emi') return row.inst.vehicle;
+  return null;
+}
+
+function rowVendorId(row: CostRow): string | null {
+  if (row.kind === 'expense') return row.exp.vendor;
+  if (row.kind === 'fuel') return row.log.fuel_station;
+  return null;
 }
 
 function todayIso() {
@@ -110,23 +127,12 @@ const BLANK_EXPENSE: ExpenseInput = {
 const BLANK_HEAD: ExpenseHeadInput = { name: '', group: 'running', slug: '' };
 
 export default function Expense() {
-  // Used directly by the "All costs" tab, which renders its own rows
-  // inline rather than through ExpenseRow/FuelLog's own row components -
-  // those gate the same way locally (see ExpenseRow's own usePermission call).
   const canDecideExpense = usePermission('expenses', 'change_status');
   const canDecideFuel = usePermission('fuel_log', 'change_status');
   const [searchParams] = useSearchParams();
-  const rawTab = searchParams.get('tab');
-  const initialTab = rawTab === 'all' || rawTab === 'costs' ? rawTab : 'heads';
-  const [tab, setTab] = useState<'heads' | 'all' | 'costs'>(initialTab);
-  // Lets the Dashboard's "Pending approvals" tile deep-link straight into
-  // the filtered view (/expense?tab=all&status=pending) instead of just
-  // naming the page.
-  const initialStatus = searchParams.get('status');
-  const [statusFilter, setStatusFilter] = useState<'all' | ExpenseApprovalStatus>(
-    initialStatus === 'pending' || initialStatus === 'approved' || initialStatus === 'rejected'
-      ? initialStatus : 'all',
-  );
+  // Lets Masters' "Expense categories" link deep-link straight into the
+  // panel (/expense?categories=1) instead of just naming the page.
+  const [showCategoriesPanel, setShowCategoriesPanel] = useState(searchParams.get('categories') === '1');
 
   const [heads, setHeads] = useState<ExpenseHead[] | null>(null);
   const [expenses, setExpenses] = useState<ExpenseRecord[] | null>(null);
@@ -140,11 +146,11 @@ export default function Expense() {
   const [ledgerEntries, setLedgerEntries] = useState<DriverLedgerEntry[]>([]);
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
   const [inventoryItems, setInventoryItems] = useState<PartInventoryItem[]>([]);
-  // For the "All costs" tab - every outgoing cost, wherever it actually
-  // lives (fuel and driver wages are deliberately NOT synced into Expense
-  // itself, since the P&L sums them separately - see economics/pnl.py's
-  // fuel_cost/driver_cost lines). This tab merges them for one combined
-  // view without changing that underlying accounting.
+  // The ledger's other three sources - fuel and driver wages are
+  // deliberately NOT synced into Expense itself, since the P&L sums them
+  // separately (see economics/pnl.py's fuel_cost/driver_cost lines). This
+  // page merges them into one view without changing that underlying
+  // accounting.
   const [fuelLogs, setFuelLogs] = useState<FuelLog[] | null>(null);
   const [installments, setInstallments] = useState<VehicleLoanInstallment[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -157,19 +163,19 @@ export default function Expense() {
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<ExpenseRecord | null>(null);
   const [markPaidExpense, setMarkPaidExpense] = useState<ExpenseRecord | null>(null);
+  const [markPaidFuelLog, setMarkPaidFuelLog] = useState<FuelLog | null>(null);
   const [markPaidInstallment, setMarkPaidInstallment] = useState<VehicleLoanInstallment | null>(null);
-  // Generalized over both approval-capable sources (Expense and Fuel Log,
-  // for the "All costs" tab) rather than one state per source - EMI/driver-
-  // wage rows have no approve/reject concept at all (see DRIVER_COST_ENTRY_
-  // TYPES's docstring), so there's nothing to generalize further to.
+  // Generalized over both approval-capable sources (Expense and Fuel Log)
+  // rather than one state per source - EMI/driver-wage rows have no
+  // approve/reject concept at all (see DRIVER_COST_ENTRY_TYPES's
+  // docstring), so there's nothing to generalize further to.
   const [decision, setDecision] = useState<{
     kind: 'expense' | 'fuel'; id: string; mode: 'approve' | 'reject'; summary: { label: string; value: string }[];
   } | null>(null);
-  const [groupByHead, setGroupByHead] = useState(false);
 
-  // "All expenses" filter bar - vehicle/vendor/date range/free-text, on top
-  // of the status segmented control. All client-side, same as the Heads
-  // tab's own search - the full list is already fetched up front.
+  // Ledger filters - vehicle/vendor/date range/free-text, on top of the
+  // cost-type chips below. All client-side - the full list is already
+  // fetched up front.
   const [vehicleFilter, setVehicleFilter] = useState('all');
   const [vendorFilter, setVendorFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
@@ -180,9 +186,6 @@ export default function Expense() {
     setVehicleFilter('all'); setVendorFilter('all'); setDateFrom(''); setDateTo(''); setExpenseSearch('');
   }
 
-  // "All costs" tab - just a type filter, not the full filter bar above;
-  // it's a visibility rollup, not meant to replace the richer per-source
-  // pages (Expense's own filters, FuelLog.tsx, the vehicle's Loan tab).
   const [costsTypeFilter, setCostsTypeFilter] = useState<'all' | CostRow['kind']>('all');
 
   function loadHeads() {
@@ -233,69 +236,7 @@ export default function Expense() {
     group === 'all' ? heads?.length ?? 0 : heads?.filter((h) => h.group === group).length ?? 0
   );
 
-  // Vehicle/vendor/date/text filters apply first, independent of the status
-  // tab - so the status counts below reflect "how many of what I'm looking
-  // at are pending/approved/rejected", not the whole ledger every time.
-  const scopedExpenses = useMemo(() => {
-    if (!expenses) return null;
-    const q = expenseSearch.trim().toLowerCase();
-    return expenses.filter((e) => {
-      if (vehicleFilter === 'company' && e.vehicle) return false;
-      if (vehicleFilter !== 'all' && vehicleFilter !== 'company' && e.vehicle !== vehicleFilter) return false;
-      if (vendorFilter !== 'all' && e.vendor !== vendorFilter) return false;
-      if (dateFrom && e.date < dateFrom) return false;
-      if (dateTo && e.date > dateTo) return false;
-      if (q) {
-        const head = heads?.find((h) => h.id === e.expense_head);
-        const vendor = vendors.find((v) => v.id === e.vendor);
-        const hay = `${e.notes} ${vendor?.name ?? ''} ${e.unlisted_vendor_name} ${head?.name ?? ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [expenses, heads, vendors, vehicleFilter, vendorFilter, dateFrom, dateTo, expenseSearch]);
-
-  const filteredExpenses = useMemo(() => {
-    if (!scopedExpenses) return null;
-    if (statusFilter === 'all') return scopedExpenses;
-    return scopedExpenses.filter((e) => e.approval_status === statusFilter);
-  }, [scopedExpenses, statusFilter]);
-
-  const statusCounts = useMemo(() => {
-    const counts = { all: scopedExpenses?.length ?? 0, pending: 0, approved: 0, rejected: 0 };
-    for (const e of scopedExpenses ?? []) counts[e.approval_status] += 1;
-    return counts;
-  }, [scopedExpenses]);
-
-  const emptyExpensesMessage = hasActiveFilters || statusFilter !== 'all'
-    ? 'No expenses match these filters.'
-    : 'No expenses recorded yet.';
-
-  // Same rollup Reports.tsx's ExpenseRegisterReport already computes
-  // client-side - grouping here too so a head's running total is visible
-  // right next to the transactions that make it up, not only in a
-  // separate report. Grouped by the filtered set, so switching the status
-  // filter narrows both layouts consistently.
-  const groupedExpenses = useMemo(() => {
-    if (!filteredExpenses || !heads) return [];
-    const byHead = new Map<string, ExpenseRecord[]>();
-    for (const exp of filteredExpenses) {
-      const list = byHead.get(exp.expense_head) ?? [];
-      list.push(exp);
-      byHead.set(exp.expense_head, list);
-    }
-    return [...byHead.entries()]
-      .map(([headId, rows]) => {
-        const head = heads.find((h) => h.id === headId);
-        if (!head) return null;
-        const total = rows.reduce((sum, r) => sum + Number(r.amount), 0);
-        return { head, rows, total };
-      })
-      .filter((g): g is { head: ExpenseHead; rows: ExpenseRecord[]; total: number } => g !== null)
-      .sort((a, b) => b.total - a.total);
-  }, [filteredExpenses, heads]);
-
-  const costRows = useMemo(() => {
+  const allCostRows = useMemo(() => {
     const rows: CostRow[] = [];
     for (const exp of expenses ?? []) rows.push({ kind: 'expense', id: exp.id, date: exp.date, exp });
     for (const log of fuelLogs ?? []) {
@@ -307,12 +248,71 @@ export default function Expense() {
       if (!DRIVER_COST_ENTRY_TYPES.has(entry.entry_type)) continue;
       rows.push({ kind: 'driver_cost', id: entry.id, date: entry.date, entry });
     }
-    return rows
-      .filter((r) => costsTypeFilter === 'all' || r.kind === costsTypeFilter)
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [expenses, fuelLogs, installments, ledgerEntries, costsTypeFilter]);
+    return rows.sort((a, b) => b.date.localeCompare(a.date));
+  }, [expenses, fuelLogs, installments, ledgerEntries]);
 
-  const costRowsTotal = useMemo(() => costRows.reduce((sum, r) => sum + costRowAmount(r), 0), [costRows]);
+  function costRowDescription(row: CostRow): string {
+    if (row.kind === 'expense') return headName(row.exp.expense_head);
+    if (row.kind === 'fuel') return `Fuel${row.log.filled_by ? ` — ${row.log.filled_by}` : ''}`;
+    if (row.kind === 'emi') return `EMI installment (due ${DATE_FMT.format(new Date(row.inst.due_date))})`;
+    return `Driver ${humanize(row.entry.subtype || row.entry.entry_type)}`;
+  }
+
+  // Vehicle/vendor/date/text filters apply first, independent of the
+  // cost-type chips below - so the chip counts reflect "how many of what
+  // I'm looking at is each type", not the whole ledger every time (same
+  // pattern the old status filter used on the expense-only table). The
+  // search haystack is built inline (not via a shared helper) so this
+  // memo's dependency array can name the state it actually reads.
+  const scopedCostRows = useMemo(() => {
+    const q = expenseSearch.trim().toLowerCase();
+    return allCostRows.filter((row) => {
+      const vId = rowVehicleId(row);
+      if (vehicleFilter === 'company' && vId) return false;
+      if (vehicleFilter !== 'all' && vehicleFilter !== 'company' && vId !== vehicleFilter) return false;
+      const vendId = rowVendorId(row);
+      if (vendorFilter !== 'all' && vendId !== vendorFilter) return false;
+      if (dateFrom && row.date < dateFrom) return false;
+      if (dateTo && row.date > dateTo) return false;
+      if (q) {
+        let hay: string;
+        if (row.kind === 'expense') {
+          const vendor = vendors.find((v) => v.id === row.exp.vendor);
+          const head = heads?.find((h) => h.id === row.exp.expense_head);
+          hay = `${row.exp.notes} ${vendor?.name ?? ''} ${row.exp.unlisted_vendor_name} ${head?.name ?? ''}`;
+        } else if (row.kind === 'fuel') {
+          const vendor = vendors.find((v) => v.id === row.log.fuel_station);
+          hay = `${row.log.filled_by} ${vendor?.name ?? ''}`;
+        } else if (row.kind === 'emi') {
+          hay = row.inst.registration_number;
+        } else {
+          const driver = drivers.find((d) => d.id === row.entry.driver);
+          hay = `${driver?.name ?? ''} ${row.entry.subtype} ${row.entry.entry_type} ${row.entry.remarks}`;
+        }
+        if (!hay.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [allCostRows, vehicleFilter, vendorFilter, dateFrom, dateTo, expenseSearch, vendors, heads, drivers]);
+
+  const costTypeCounts = useMemo(() => {
+    const counts: Record<'all' | CostRow['kind'], number> = { all: scopedCostRows.length, expense: 0, fuel: 0, emi: 0, driver_cost: 0 };
+    for (const r of scopedCostRows) counts[r.kind] += 1;
+    return counts;
+  }, [scopedCostRows]);
+
+  const filteredCostRows = useMemo(() => (
+    costsTypeFilter === 'all' ? scopedCostRows : scopedCostRows.filter((r) => r.kind === costsTypeFilter)
+  ), [scopedCostRows, costsTypeFilter]);
+
+  const filteredCostRowsTotal = useMemo(
+    () => filteredCostRows.reduce((sum, r) => sum + costRowAmount(r), 0),
+    [filteredCostRows],
+  );
+
+  const emptyRowsMessage = hasActiveFilters || costsTypeFilter !== 'all'
+    ? 'No costs match these filters.'
+    : 'No costs recorded yet.';
 
   async function handleRetireExpense(exp: ExpenseRecord) {
     if (!confirm('Retire this expense record?')) return;
@@ -351,324 +351,133 @@ export default function Expense() {
     }
   }
 
+  function decideRow(row: CostRow, mode: 'approve' | 'reject') {
+    if (row.kind === 'expense') setDecision({ kind: 'expense', id: row.exp.id, mode, summary: expenseDecisionSummary(row.exp) });
+    else if (row.kind === 'fuel') setDecision({ kind: 'fuel', id: row.log.id, mode, summary: fuelLogDecisionSummary(row.log) });
+  }
+
   return (
     <>
       <header className="page-head">
         <div>
           <h1>Expense</h1>
-          <div className="sub">
-            {tab === 'heads'
-              ? 'The heads trip & work cards and maintenance draw from — no status, no delete, just add and rename.'
-              : 'Every cost, wherever it was entered — a trip, a tyre job, a maintenance visit, or logged directly here.'}
-          </div>
+          <div className="sub">Every cost, wherever it happened — a trip, a tyre job, fuel, a driver payment, or logged directly here.</div>
         </div>
-        {tab === 'heads' ? (
-          <button className="btn primary" onClick={() => { setEditingHead(null); setShowHeadForm(true); }}>
-            + Add expense head
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <button type="button" className="btn" onClick={() => setShowCategoriesPanel(true)}>
+            Manage categories
           </button>
-        ) : (
           <button className="btn primary" onClick={() => { setEditingExpense(null); setShowExpenseForm(true); }}>
             + Add expense
           </button>
-        )}
+        </div>
       </header>
 
       <main className="content">
         {error && <div className="error-banner">{error}</div>}
 
-        <div className="seg" style={{ width: 'fit-content' }}>
-          <button className={tab === 'heads' ? 'active' : ''} onClick={() => setTab('heads')}>
-            Heads ({heads?.length ?? 0})
+        <div className="seg">
+          <button className={costsTypeFilter === 'all' ? 'active' : ''} onClick={() => setCostsTypeFilter('all')}>
+            All ({costTypeCounts.all})
           </button>
-          <button className={tab === 'all' ? 'active' : ''} onClick={() => setTab('all')}>
-            All expenses ({expenses?.length ?? 0})
-          </button>
-          <button className={tab === 'costs' ? 'active' : ''} onClick={() => setTab('costs')}>
-            All costs ({costRows.length})
-          </button>
+          {(['expense', 'fuel', 'emi', 'driver_cost'] as const).map((k) => (
+            <button key={k} className={costsTypeFilter === k ? 'active' : ''} onClick={() => setCostsTypeFilter(k)}>
+              {COST_ROW_KIND_LABELS[k]} ({costTypeCounts[k]})
+            </button>
+          ))}
         </div>
 
-        {tab === 'heads' && (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
-              <div className="seg">
-                <button className={groupFilter === 'all' ? 'active' : ''} onClick={() => setGroupFilter('all')}>
-                  All ({countFor('all')})
-                </button>
-                {EXPENSE_HEAD_GROUPS.map((g) => (
-                  <button key={g} className={groupFilter === g ? 'active' : ''} onClick={() => setGroupFilter(g)}>
-                    {GROUP_LABELS[g]} ({countFor(g)})
-                  </button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 14 }}>
+          <div className="field" style={{ minWidth: 170 }}>
+            <label htmlFor="f_vehicle">Vehicle</label>
+            <select id="f_vehicle" value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)}>
+              <option value="all">All vehicles</option>
+              <option value="company">Company (not vehicle-specific)</option>
+              {vehicles.map((v) => <option key={v.id} value={v.id}>{v.registration_number}</option>)}
+            </select>
+          </div>
+          <div className="field" style={{ minWidth: 160 }}>
+            <label htmlFor="f_vendor">Vendor</label>
+            <select id="f_vendor" value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)}>
+              <option value="all">All vendors</option>
+              {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </div>
+          <div className="field" style={{ minWidth: 135 }}>
+            <label htmlFor="f_from">From</label>
+            <input id="f_from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          </div>
+          <div className="field" style={{ minWidth: 135 }}>
+            <label htmlFor="f_to">To</label>
+            <input id="f_to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </div>
+          <div className="field" style={{ minWidth: 200, flex: 1 }}>
+            <label htmlFor="f_search">Search</label>
+            <input
+              id="f_search" type="search" placeholder="Notes, vendor, head, driver…"
+              value={expenseSearch} onChange={(e) => setExpenseSearch(e.target.value)}
+            />
+          </div>
+          {hasActiveFilters && (
+            <button type="button" className="link-btn" style={{ paddingBottom: 9 }} onClick={clearFilters}>
+              Clear filters
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700 }}>Total: {CURRENCY.format(filteredCostRowsTotal)}</div>
+        </div>
+
+        <section className="table-card" style={{ marginTop: 10 }}>
+          <div className="table-scroll responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th><th>Type</th><th>Vehicle / Driver</th><th>Description</th><th>Vendor</th>
+                  <th>Status</th><th>Payment</th><th>Amount</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCostRows.map((row) => (
+                  <CostTableRow
+                    key={`${row.kind}:${row.id}`}
+                    row={row}
+                    vehicleName={vehicleName}
+                    vendorName={vendorName}
+                    driverName={driverName}
+                    description={costRowDescription(row)}
+                    canDecideExpense={canDecideExpense}
+                    canDecideFuel={canDecideFuel}
+                    onEditExpense={() => { if (row.kind === 'expense') { setEditingExpense(row.exp); setShowExpenseForm(true); } }}
+                    onRetireExpense={() => { if (row.kind === 'expense') handleRetireExpense(row.exp); }}
+                    onMarkPaidExpense={() => { if (row.kind === 'expense') setMarkPaidExpense(row.exp); }}
+                    onMarkPaidFuel={() => { if (row.kind === 'fuel') setMarkPaidFuelLog(row.log); }}
+                    onMarkPaidInstallment={() => { if (row.kind === 'emi') setMarkPaidInstallment(row.inst); }}
+                    onApprove={() => decideRow(row, 'approve')}
+                    onReject={() => decideRow(row, 'reject')}
+                  />
                 ))}
-              </div>
-              <input
-                type="search" className="search-input" placeholder="Search heads…"
-                value={headSearch} onChange={(e) => setHeadSearch(e.target.value)}
-              />
-            </div>
-
-            <section className="table-card" style={{ marginTop: 14 }}>
-              <div className="table-scroll responsive">
-                <table>
-                  <thead><tr><th>Group</th><th>Name</th><th></th></tr></thead>
-                  <tbody>
-                    {visibleHeads?.map((h) => (
-                      <tr key={h.id}>
-                        <td data-label="Group"><GroupPill group={h.group} /></td>
-                        <td data-label="Name">{h.name}</td>
-                        <td data-label="">
-                          <button type="button" className="link-btn" onClick={() => { setEditingHead(h); setShowHeadForm(true); }}>
-                            Rename
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {visibleHeads && visibleHeads.length === 0 && (
-                  <div className="empty-state">
-                    {headSearch || groupFilter !== 'all' ? 'No heads match this filter.' : 'No expense heads yet.'}
-                  </div>
-                )}
-              </div>
-            </section>
-          </>
-        )}
-
-        {tab === 'all' && (
-          <>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 14 }}>
-              <div className="field" style={{ minWidth: 170 }}>
-                <label htmlFor="f_vehicle">Vehicle</label>
-                <select id="f_vehicle" value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)}>
-                  <option value="all">All vehicles</option>
-                  <option value="company">Company (not vehicle-specific)</option>
-                  {vehicles.map((v) => <option key={v.id} value={v.id}>{v.registration_number}</option>)}
-                </select>
-              </div>
-              <div className="field" style={{ minWidth: 160 }}>
-                <label htmlFor="f_vendor">Vendor</label>
-                <select id="f_vendor" value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)}>
-                  <option value="all">All vendors</option>
-                  {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select>
-              </div>
-              <div className="field" style={{ minWidth: 135 }}>
-                <label htmlFor="f_from">From</label>
-                <input id="f_from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-              </div>
-              <div className="field" style={{ minWidth: 135 }}>
-                <label htmlFor="f_to">To</label>
-                <input id="f_to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-              </div>
-              <div className="field" style={{ minWidth: 200, flex: 1 }}>
-                <label htmlFor="f_search">Search</label>
-                <input
-                  id="f_search" type="search" placeholder="Notes, vendor, head…"
-                  value={expenseSearch} onChange={(e) => setExpenseSearch(e.target.value)}
-                />
-              </div>
-              {hasActiveFilters && (
-                <button type="button" className="link-btn" style={{ paddingBottom: 9 }} onClick={clearFilters}>
-                  Clear filters
-                </button>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 14 }}>
-              <div className="seg">
-                <button className={statusFilter === 'all' ? 'active' : ''} onClick={() => setStatusFilter('all')}>
-                  All ({statusCounts.all})
-                </button>
-                <button className={statusFilter === 'pending' ? 'active' : ''} onClick={() => setStatusFilter('pending')}>
-                  Pending ({statusCounts.pending})
-                </button>
-                <button className={statusFilter === 'approved' ? 'active' : ''} onClick={() => setStatusFilter('approved')}>
-                  Approved ({statusCounts.approved})
-                </button>
-                <button className={statusFilter === 'rejected' ? 'active' : ''} onClick={() => setStatusFilter('rejected')}>
-                  Rejected ({statusCounts.rejected})
-                </button>
-              </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--ink-soft)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={groupByHead} onChange={(e) => setGroupByHead(e.target.checked)} />
-                Group by head
-              </label>
-            </div>
-
-            {groupByHead ? (
-              <>
-                {groupedExpenses.map((g) => (
-                  <section className="table-card" style={{ marginTop: 14 }} key={g.head.id}>
-                    <div className="table-head">
-                      <h3>
-                        {g.head.name}{' '}
-                        <span style={{ fontWeight: 400, color: 'var(--ink-soft)', fontSize: 12.5 }}>({g.rows.length})</span>
-                      </h3>
-                      <span style={{ fontSize: 13.5, fontWeight: 700 }}>{CURRENCY.format(g.total)}</span>
-                    </div>
-                    <div className="table-scroll responsive">
-                      <table>
-                        <thead>
-                          <tr><th>Vehicle</th><th>Source</th><th>Status</th><th>Date</th><th>Amount</th><th>Vendor</th><th>Payment</th><th></th></tr>
-                        </thead>
-                        <tbody>
-                          {g.rows.map((exp) => (
-                            <ExpenseRow
-                              key={exp.id} exp={exp} showHead={false} vehicleName={vehicleName} vendorName={vendorName}
-                              onEdit={() => { setEditingExpense(exp); setShowExpenseForm(true); }}
-                              onRetire={() => handleRetireExpense(exp)}
-                              onMarkPaid={() => setMarkPaidExpense(exp)}
-                              onApprove={() => setDecision({ kind: 'expense', id: exp.id, mode: 'approve', summary: expenseDecisionSummary(exp) })}
-                              onReject={() => setDecision({ kind: 'expense', id: exp.id, mode: 'reject', summary: expenseDecisionSummary(exp) })}
-                            />
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
-                ))}
-                {groupedExpenses.length === 0 && (
-                  <section className="table-card" style={{ marginTop: 14 }}>
-                    <div className="empty-state">
-                      {emptyExpensesMessage}
-                    </div>
-                  </section>
-                )}
-              </>
-            ) : (
-              <section className="table-card" style={{ marginTop: 14 }}>
-                <div className="table-scroll responsive">
-                  <table>
-                    <thead>
-                      <tr><th>Vehicle</th><th>Head</th><th>Source</th><th>Status</th><th>Date</th><th>Amount</th><th>Vendor</th><th>Payment</th><th></th></tr>
-                    </thead>
-                    <tbody>
-                      {filteredExpenses?.map((exp) => (
-                        <ExpenseRow
-                          key={exp.id} exp={exp} showHead headName={headName(exp.expense_head)}
-                          vehicleName={vehicleName} vendorName={vendorName}
-                          onEdit={() => { setEditingExpense(exp); setShowExpenseForm(true); }}
-                          onRetire={() => handleRetireExpense(exp)}
-                          onMarkPaid={() => setMarkPaidExpense(exp)}
-                          onApprove={() => setDecision({ kind: 'expense', id: exp.id, mode: 'approve', summary: expenseDecisionSummary(exp) })}
-                          onReject={() => setDecision({ kind: 'expense', id: exp.id, mode: 'reject', summary: expenseDecisionSummary(exp) })}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
-                  {filteredExpenses && filteredExpenses.length === 0 && (
-                    <div className="empty-state">
-                      {emptyExpensesMessage}
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-          </>
-        )}
-
-        {tab === 'costs' && (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 14 }}>
-              <div className="seg">
-                <button className={costsTypeFilter === 'all' ? 'active' : ''} onClick={() => setCostsTypeFilter('all')}>
-                  All ({costRows.length})
-                </button>
-                {(['expense', 'fuel', 'emi', 'driver_cost'] as const).map((k) => (
-                  <button key={k} className={costsTypeFilter === k ? 'active' : ''} onClick={() => setCostsTypeFilter(k)}>
-                    {COST_ROW_KIND_LABELS[k]}
-                  </button>
-                ))}
-              </div>
-              <div style={{ fontSize: 13.5, fontWeight: 700 }}>Total: {CURRENCY.format(costRowsTotal)}</div>
-            </div>
-
-            <section className="table-card" style={{ marginTop: 14 }}>
-              <div className="table-scroll responsive">
-                <table>
-                  <thead>
-                    <tr><th>Date</th><th>Type</th><th>Vehicle / Driver</th><th>Description</th><th>Amount</th><th>Status</th><th></th></tr>
-                  </thead>
-                  <tbody>
-                    {costRows.map((row) => (
-                      <tr key={`${row.kind}:${row.id}`}>
-                        <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(row.date))}</td>
-                        <td data-label="Type">{COST_ROW_KIND_LABELS[row.kind]}</td>
-                        <td data-label="Vehicle / Driver" className="reg-no">
-                          {row.kind === 'expense' && vehicleName(row.exp.vehicle)}
-                          {row.kind === 'fuel' && vehicleName(row.log.vehicle)}
-                          {row.kind === 'emi' && row.inst.registration_number}
-                          {row.kind === 'driver_cost' && driverName(row.entry.driver)}
-                        </td>
-                        <td data-label="Description">
-                          {row.kind === 'expense' && headName(row.exp.expense_head)}
-                          {row.kind === 'fuel' && `Fuel${row.log.filled_by ? ` — ${row.log.filled_by}` : ''}`}
-                          {row.kind === 'emi' && `EMI installment (due ${DATE_FMT.format(new Date(row.inst.due_date))})`}
-                          {row.kind === 'driver_cost' && `Driver ${humanize(row.entry.subtype || row.entry.entry_type)}`}
-                        </td>
-                        <td data-label="Amount" className="tnum">{CURRENCY.format(costRowAmount(row))}</td>
-                        <td data-label="Status">
-                          {row.kind === 'expense' && (
-                            <ApprovalStatusPill label={APPROVAL_LABEL[row.exp.approval_status]} tone={APPROVAL_TONE[row.exp.approval_status]} />
-                          )}
-                          {row.kind === 'fuel' && (
-                            <ApprovalStatusPill label={FUEL_STATUS_LABEL[row.log.status]} tone={FUEL_STATUS_TONE[row.log.status]} />
-                          )}
-                          {row.kind === 'emi' && (
-                            row.inst.paid ? <span className="pill on">Paid</span>
-                              : row.inst.is_overdue
-                                ? <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Overdue</span>
-                                : <span className="pill off">Due</span>
-                          )}
-                          {row.kind === 'driver_cost' && <span className="pill off">Recorded</span>}
-                        </td>
-                        <td data-label="">
-                          <div className="row-actions">
-                            {row.kind === 'expense' && row.exp.approval_status === 'pending' && canDecideExpense && (
-                              <>
-                                <button type="button" className="link-btn"
-                                  onClick={() => setDecision({ kind: 'expense', id: row.exp.id, mode: 'approve', summary: expenseDecisionSummary(row.exp) })}>
-                                  Approve
-                                </button>
-                                <button type="button" className="link-btn danger"
-                                  onClick={() => setDecision({ kind: 'expense', id: row.exp.id, mode: 'reject', summary: expenseDecisionSummary(row.exp) })}>
-                                  Reject
-                                </button>
-                              </>
-                            )}
-                            {row.kind === 'fuel' && row.log.status === 'submitted' && canDecideFuel && (
-                              <>
-                                <button type="button" className="link-btn"
-                                  onClick={() => setDecision({ kind: 'fuel', id: row.log.id, mode: 'approve', summary: fuelLogDecisionSummary(row.log) })}>
-                                  Approve
-                                </button>
-                                <button type="button" className="link-btn danger"
-                                  onClick={() => setDecision({ kind: 'fuel', id: row.log.id, mode: 'reject', summary: fuelLogDecisionSummary(row.log) })}>
-                                  Reject
-                                </button>
-                              </>
-                            )}
-                            {row.kind === 'emi' && !row.inst.paid && (
-                              <button type="button" className="link-btn" onClick={() => setMarkPaidInstallment(row.inst)}>Mark paid</button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {costRows.length === 0 && (
-                  <div className="empty-state">
-                    {costsTypeFilter === 'all' ? 'No costs recorded yet.' : `No ${COST_ROW_KIND_LABELS[costsTypeFilter].toLowerCase()} costs.`}
-                  </div>
-                )}
-              </div>
-            </section>
-          </>
-        )}
+              </tbody>
+            </table>
+            {filteredCostRows.length === 0 && <div className="empty-state">{emptyRowsMessage}</div>}
+          </div>
+        </section>
       </main>
 
+      {showCategoriesPanel && (
+        <CategoriesPanel
+          visibleHeads={visibleHeads}
+          groupFilter={groupFilter}
+          setGroupFilter={setGroupFilter}
+          headSearch={headSearch}
+          setHeadSearch={setHeadSearch}
+          countFor={countFor}
+          onClose={() => setShowCategoriesPanel(false)}
+          onAdd={() => { setEditingHead(null); setShowHeadForm(true); }}
+          onRename={(h) => { setEditingHead(h); setShowHeadForm(true); }}
+        />
+      )}
       {showHeadForm && (
         <ExpenseHeadForm
           initial={editingHead}
@@ -710,6 +519,15 @@ export default function Expense() {
           onClose={() => { setMarkPaidExpense(null); loadExpenses(); }}
         />
       )}
+      {markPaidFuelLog && (
+        <MarkPaidModal
+          title="Mark fuel log paid"
+          vendorName={vendorName(markPaidFuelLog.fuel_station)}
+          amountLabel={CURRENCY.format(Number(markPaidFuelLog.amount))}
+          onConfirm={(mode) => markFuelLogPaid(markPaidFuelLog.id, mode)}
+          onClose={() => { setMarkPaidFuelLog(null); loadFuelLogs(); }}
+        />
+      )}
       {decision && (
         <ApprovalDecisionModal
           mode={decision.mode}
@@ -736,61 +554,179 @@ export default function Expense() {
   );
 }
 
-// Shared by the flat and grouped-by-head layouts, so a row looks and
-// behaves identically either way - one place to change, not the
-// copy-pasted-per-page duplication the Tyres/Maintenance Operations-vs-
-// Masters pages ended up with.
-function ExpenseRow({
-  exp, showHead, headName, vehicleName, vendorName, onEdit, onRetire, onMarkPaid, onApprove, onReject,
+// One row-renderer for all four cost kinds, replacing what used to be two
+// near-identical builders (the expense-only ExpenseRow and the "All costs"
+// tab's own inline <tr>) - a kind-specific field (Vendor, Payment, row
+// actions) just renders '—' or nothing for the kinds it doesn't apply to,
+// rather than forking into separate tables again.
+function CostTableRow({
+  row, vehicleName, vendorName, driverName, description, canDecideExpense, canDecideFuel,
+  onEditExpense, onRetireExpense, onMarkPaidExpense, onMarkPaidFuel, onMarkPaidInstallment, onApprove, onReject,
 }: {
-  exp: ExpenseRecord; showHead: boolean; headName?: string;
-  vehicleName: (id: string | null) => string; vendorName: (id: string | null) => string;
-  onEdit: () => void; onRetire: () => void; onMarkPaid: () => void;
-  onApprove: () => void; onReject: () => void;
+  row: CostRow;
+  vehicleName: (id: string | null) => string;
+  vendorName: (id: string | null) => string;
+  driverName: (id: string) => string;
+  description: string;
+  canDecideExpense: boolean;
+  canDecideFuel: boolean;
+  onEditExpense: () => void;
+  onRetireExpense: () => void;
+  onMarkPaidExpense: () => void;
+  onMarkPaidFuel: () => void;
+  onMarkPaidInstallment: () => void;
+  onApprove: () => void;
+  onReject: () => void;
 }) {
-  // Gated client-side the way CompanyProfile.tsx already does - the
-  // backend (expenses/change_status) is still the real, independent gate
-  // either way (economics.views.ExpenseViewSet.approve/reject).
-  const canDecide = usePermission('expenses', 'change_status');
+  const vehicleLabel = row.kind === 'expense' ? vehicleName(row.exp.vehicle)
+    : row.kind === 'fuel' ? vehicleName(row.log.vehicle)
+      : row.kind === 'emi' ? row.inst.registration_number
+        : driverName(row.entry.driver);
+
+  const vendorLabel = row.kind === 'expense'
+    ? (row.exp.vendor ? vendorName(row.exp.vendor) : row.exp.unlisted_vendor_name ? `${row.exp.unlisted_vendor_name} (not in system)` : '—')
+    : row.kind === 'fuel' ? vendorName(row.log.fuel_station)
+      : '—';
 
   return (
     <tr>
-      <td data-label="Vehicle" className="reg-no">{vehicleName(exp.vehicle)}</td>
-      {showHead && <td data-label="Head">{headName}</td>}
-      <td data-label="Source"><ExpenseSourceBadge expense={exp} /></td>
-      <td data-label="Status"><ApprovalStatusPill label={APPROVAL_LABEL[exp.approval_status]} tone={APPROVAL_TONE[exp.approval_status]} /></td>
-      <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(exp.date))}</td>
-      <td data-label="Amount" className="tnum">{CURRENCY.format(Number(exp.amount))}</td>
-      <td data-label="Vendor">{exp.vendor ? vendorName(exp.vendor) : exp.unlisted_vendor_name ? `${exp.unlisted_vendor_name} (not in system)` : '—'}</td>
-      <td data-label="Payment">
-        {exp.is_paid === null ? '—' : exp.is_paid ? (
-          <span className="pill on">Paid</span>
-        ) : (
-          <button type="button" className="link-btn" onClick={onMarkPaid}>Mark paid</button>
-        )}
+      <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(row.date))}</td>
+      <td data-label="Type">{COST_ROW_KIND_LABELS[row.kind]}</td>
+      <td data-label="Vehicle / Driver" className={row.kind !== 'driver_cost' ? 'reg-no' : undefined}>{vehicleLabel}</td>
+      <td data-label="Description">
+        {description}
+        {row.kind === 'expense' && <ExpenseSourceBadge expense={row.exp} />}
       </td>
+      <td data-label="Vendor">{vendorLabel}</td>
+      <td data-label="Status">
+        {row.kind === 'expense' && (
+          <ApprovalStatusPill label={APPROVAL_LABEL[row.exp.approval_status]} tone={APPROVAL_TONE[row.exp.approval_status]} />
+        )}
+        {row.kind === 'fuel' && (
+          <ApprovalStatusPill label={FUEL_STATUS_LABEL[row.log.status]} tone={FUEL_STATUS_TONE[row.log.status]} />
+        )}
+        {row.kind === 'emi' && (
+          row.inst.paid ? <span className="pill on">Paid</span>
+            : row.inst.is_overdue
+              ? <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Overdue</span>
+              : <span className="pill off">Due</span>
+        )}
+        {row.kind === 'driver_cost' && <span className="pill off">Recorded</span>}
+      </td>
+      <td data-label="Payment">
+        {row.kind === 'expense' && (
+          row.exp.is_paid === null ? '—' : row.exp.is_paid ? (
+            <span className="pill on">Paid</span>
+          ) : (
+            <button type="button" className="link-btn" onClick={onMarkPaidExpense}>Mark paid</button>
+          )
+        )}
+        {row.kind === 'fuel' && (
+          row.log.is_paid === null ? '—' : row.log.is_paid ? (
+            <span className="pill on">Paid</span>
+          ) : (
+            <button type="button" className="link-btn" onClick={onMarkPaidFuel}>Mark paid</button>
+          )
+        )}
+        {(row.kind === 'emi' || row.kind === 'driver_cost') && '—'}
+      </td>
+      <td data-label="Amount" className="tnum">{CURRENCY.format(costRowAmount(row))}</td>
       <td data-label="">
         <div className="row-actions">
-          {exp.approval_status === 'pending' && canDecide && (
+          {row.kind === 'expense' && row.exp.approval_status === 'pending' && canDecideExpense && (
             <>
               <button type="button" className="link-btn" onClick={onApprove}>Approve</button>
               <button type="button" className="link-btn danger" onClick={onReject}>Reject</button>
             </>
           )}
-          {exp.source === 'direct' ? (
-            <button className="link-btn" onClick={onEdit}>Edit</button>
-          ) : (
-            // Editing here would be silently overwritten the next time its
-            // source record saves (see e.g. tyres/serializers.py's
-            // _sync_expense) - and now rejected server-side too if it
-            // somehow got through (ExpenseSerializer.validate). A link to
-            // the real place, not a button that lies.
-            <ExpenseSourceLink expense={exp} />
+          {row.kind === 'expense' && (
+            row.exp.source === 'direct' ? (
+              <button className="link-btn" onClick={onEditExpense}>Edit</button>
+            ) : (
+              // Editing here would be silently overwritten the next time its
+              // source record saves (see e.g. tyres/serializers.py's
+              // _sync_expense) - and now rejected server-side too if it
+              // somehow got through (ExpenseSerializer.validate). A link to
+              // the real place, not a button that lies.
+              <ExpenseSourceLink expense={row.exp} />
+            )
           )}
-          <button className="link-btn danger" onClick={onRetire}>Retire</button>
+          {row.kind === 'expense' && <button className="link-btn danger" onClick={onRetireExpense}>Retire</button>}
+          {row.kind === 'fuel' && row.log.status === 'submitted' && canDecideFuel && (
+            <>
+              <button type="button" className="link-btn" onClick={onApprove}>Approve</button>
+              <button type="button" className="link-btn danger" onClick={onReject}>Reject</button>
+            </>
+          )}
+          {row.kind === 'emi' && !row.inst.paid && (
+            <button type="button" className="link-btn" onClick={onMarkPaidInstallment}>Mark paid</button>
+          )}
         </div>
       </td>
     </tr>
+  );
+}
+
+// The old "Heads" tab's content, unchanged, now reached through the page
+// head's "Manage categories" trigger instead of competing with the ledger
+// for a tab slot - rarely touched, so it doesn't need to be always on
+// screen.
+function CategoriesPanel({
+  visibleHeads, groupFilter, setGroupFilter, headSearch, setHeadSearch, countFor, onClose, onAdd, onRename,
+}: {
+  visibleHeads: ExpenseHead[] | null;
+  groupFilter: ExpenseHeadGroup | 'all';
+  setGroupFilter: (g: ExpenseHeadGroup | 'all') => void;
+  headSearch: string;
+  setHeadSearch: (v: string) => void;
+  countFor: (group: ExpenseHeadGroup | 'all') => number;
+  onClose: () => void;
+  onAdd: () => void;
+  onRename: (h: ExpenseHead) => void;
+}) {
+  return (
+    <SidePanel title="Expense categories" onClose={onClose}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+        <div className="seg">
+          <button className={groupFilter === 'all' ? 'active' : ''} onClick={() => setGroupFilter('all')}>
+            All ({countFor('all')})
+          </button>
+          {EXPENSE_HEAD_GROUPS.map((g) => (
+            <button key={g} className={groupFilter === g ? 'active' : ''} onClick={() => setGroupFilter(g)}>
+              {GROUP_LABELS[g]} ({countFor(g)})
+            </button>
+          ))}
+        </div>
+        <button type="button" className="btn primary" onClick={onAdd}>+ Add category</button>
+      </div>
+      <input
+        type="search" className="search-input" style={{ width: '100%', marginBottom: 12 }}
+        placeholder="Search categories…" value={headSearch} onChange={(e) => setHeadSearch(e.target.value)}
+      />
+      <div className="table-card">
+        <div className="table-scroll responsive">
+          <table>
+            <thead><tr><th>Group</th><th>Name</th><th></th></tr></thead>
+            <tbody>
+              {visibleHeads?.map((h) => (
+                <tr key={h.id}>
+                  <td data-label="Group"><GroupPill group={h.group} /></td>
+                  <td data-label="Name">{h.name}</td>
+                  <td data-label="">
+                    <button type="button" className="link-btn" onClick={() => onRename(h)}>Rename</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {visibleHeads && visibleHeads.length === 0 && (
+            <div className="empty-state">
+              {headSearch || groupFilter !== 'all' ? 'No categories match this filter.' : 'No expense categories yet.'}
+            </div>
+          )}
+        </div>
+      </div>
+    </SidePanel>
   );
 }
 

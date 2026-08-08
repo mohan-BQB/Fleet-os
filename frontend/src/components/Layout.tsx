@@ -159,7 +159,7 @@ export default function Layout() {
             <>
               <div className="nav-label">Settlements</div>
               {canSeeExpenses && !disabledModules.has('economics') && (
-                <NavLink to="/expense?tab=all" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+                <NavLink to="/expense" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
                   <ReceiptIcon />Expenses
                 </NavLink>
               )}
@@ -200,8 +200,8 @@ export default function Layout() {
                 </NavLink>
               )}
               {canSeeExpenses && !disabledModules.has('economics') && (
-                <NavLink to="/expense?tab=heads" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-                  <ReceiptIcon />Expense heads
+                <NavLink to="/expense?categories=1" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+                  <ReceiptIcon />Expense categories
                 </NavLink>
               )}
               {canSeeCustomersVendors && (!disabledModules.has('vendors') || !disabledModules.has('customers')) && (

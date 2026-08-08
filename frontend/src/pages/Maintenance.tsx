@@ -33,8 +33,7 @@ export default function Maintenance() {
   // Was two separate nav entries/pages (Operations > Maintenance for
   // logging, Masters > Maintenance for schedules/history) - merged into
   // one page, one nav entry, an in-page tab switch instead - see
-  // Expense.tsx's own tab=all|heads / Tyres.tsx's log|specs for the same
-  // pattern.
+  // Tyres.tsx's own tab=log|specs for the same pattern.
   const [pageTab, setPageTab] = useState<'log' | 'schedules'>(searchParams.get('tab') === 'schedules' ? 'schedules' : 'log');
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);

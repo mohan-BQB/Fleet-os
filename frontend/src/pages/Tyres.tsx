@@ -58,8 +58,8 @@ export default function Tyres() {
   const [searchParams] = useSearchParams();
   // Was two separate nav entries/pages (Operations > Tyres for logging,
   // Masters > Tyres for specs/history) - merged into one page, one nav
-  // entry, an in-page tab switch instead - see Expense.tsx's own
-  // tab=all|heads for the same pattern.
+  // entry, an in-page tab switch instead - see Maintenance.tsx's own
+  // tab=log|schedules for the same pattern.
   const [pageTab, setPageTab] = useState<'log' | 'specs'>(searchParams.get('tab') === 'specs' ? 'specs' : 'log');
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
