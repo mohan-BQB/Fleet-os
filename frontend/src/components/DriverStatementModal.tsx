@@ -98,30 +98,30 @@ export default function DriverStatementModal({ driver, entries, onClose }: Props
         </div>
       </div>
 
-      <div className="table-scroll">
+      <div className="table-scroll responsive">
         <table>
           <thead><tr><th>Date</th><th>Particulars</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead>
           <tbody>
             <tr>
-              <td className="tnum">{DATE_FMT.format(new Date(`${start}T00:00:00`))}</td>
-              <td>Opening balance</td>
-              <td className="tnum">–</td>
-              <td className="tnum">–</td>
-              <td className="tnum" style={{ color: openingBalance < 0 ? 'var(--critical)' : undefined }}>
+              <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(`${start}T00:00:00`))}</td>
+              <td data-label="Particulars">Opening balance</td>
+              <td data-label="Debit" className="tnum">–</td>
+              <td data-label="Credit" className="tnum">–</td>
+              <td data-label="Balance" className="tnum" style={{ color: openingBalance < 0 ? 'var(--critical)' : undefined }}>
                 {openingBalance < 0 ? `−${CURRENCY.format(-openingBalance)}` : CURRENCY.format(openingBalance)}
               </td>
             </tr>
             {rows.map(({ entry, isCredit, amount, balance }) => (
               <tr key={entry.id}>
-                <td className="tnum">{DATE_FMT.format(new Date(entry.date))}</td>
-                <td>{particulars(entry)}</td>
-                <td className="tnum" style={{ color: !isCredit ? 'var(--critical)' : undefined }}>
+                <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(entry.date))}</td>
+                <td data-label="Particulars">{particulars(entry)}</td>
+                <td data-label="Debit" className="tnum" style={{ color: !isCredit ? 'var(--critical)' : undefined }}>
                   {isCredit ? '–' : CURRENCY.format(amount)}
                 </td>
-                <td className="tnum" style={{ color: isCredit ? 'var(--good)' : undefined }}>
+                <td data-label="Credit" className="tnum" style={{ color: isCredit ? 'var(--good)' : undefined }}>
                   {isCredit ? CURRENCY.format(amount) : '–'}
                 </td>
-                <td className="tnum" style={{ color: balance < 0 ? 'var(--critical)' : undefined }}>
+                <td data-label="Balance" className="tnum" style={{ color: balance < 0 ? 'var(--critical)' : undefined }}>
                   {balance < 0 ? `−${CURRENCY.format(-balance)}` : CURRENCY.format(balance)}
                 </td>
               </tr>

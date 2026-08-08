@@ -64,7 +64,7 @@ export default function PartsInventory() {
         {error && <div className="error-banner">{error}</div>}
 
         <section className="table-card">
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr>
@@ -76,19 +76,19 @@ export default function PartsInventory() {
                   const low = i.reorder_level != null && Number(i.quantity_on_hand) <= Number(i.reorder_level);
                   return (
                     <tr key={i.id}>
-                      <td>
+                      <td data-label="Part">
                         <button type="button" className="veh-cell btn-reset" onClick={() => setDetailItem(i)}>
                           <span className="veh-icon"><BoxIcon /></span>
                           <div className="reg-no" style={{ fontFamily: 'inherit' }}>{i.name}</div>
                         </button>
                       </td>
-                      <td>{i.part_number || '—'}</td>
-                      <td className="tnum" style={{ color: low ? 'var(--critical)' : undefined }}>
+                      <td data-label="Part #">{i.part_number || '—'}</td>
+                      <td data-label="On hand" className="tnum" style={{ color: low ? 'var(--critical)' : undefined }}>
                         {Number(i.quantity_on_hand).toLocaleString('en-IN')} {i.unit}
                       </td>
-                      <td className="tnum">{i.reorder_level != null ? `${Number(i.reorder_level)} ${i.unit}` : '—'}</td>
-                      <td><span className={`pill ${i.status === 'active' ? 'on' : 'off'}`}>{i.status === 'active' ? 'Active' : 'Retired'}</span></td>
-                      <td>
+                      <td data-label="Reorder level" className="tnum">{i.reorder_level != null ? `${Number(i.reorder_level)} ${i.unit}` : '—'}</td>
+                      <td data-label="Status"><span className={`pill ${i.status === 'active' ? 'on' : 'off'}`}>{i.status === 'active' ? 'Active' : 'Retired'}</span></td>
+                      <td data-label="">
                         <div className="row-actions">
                           <button className="link-btn" onClick={() => { setEditing(i); setShowForm(true); }}>Edit</button>
                           {i.status === 'active' && <button className="link-btn danger" onClick={() => handleRetire(i)}>Retire</button>}

@@ -334,15 +334,15 @@ export default function DriverDetailModal({ driver: initialDriver, onClose, onCh
             <h3>Documents on file <span className="n">{docs?.length ?? '…'}</span></h3>
             <button type="button" className="link-btn" onClick={() => setShowComplianceModal(true)}>+ Add document</button>
           </div>
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead><tr><th>Document</th><th>Valid till</th><th>Status</th></tr></thead>
               <tbody>
                 {docs?.filter((d) => d.status !== 'archived').map((doc) => (
                   <tr key={doc.id}>
-                    <td>{humanize(doc.doc_type)}</td>
-                    <td className="tnum">{doc.valid_till ? FULL_DATE_FMT.format(new Date(doc.valid_till)) : '—'}</td>
-                    <td>
+                    <td data-label="Document">{humanize(doc.doc_type)}</td>
+                    <td data-label="Valid till" className="tnum">{doc.valid_till ? FULL_DATE_FMT.format(new Date(doc.valid_till)) : '—'}</td>
+                    <td data-label="Status">
                       {doc.is_expired ? <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Expired</span>
                         : doc.is_due ? <span className="pill svc">Due soon</span>
                         : <span className="pill on">Valid</span>}
@@ -377,7 +377,7 @@ export default function DriverDetailModal({ driver: initialDriver, onClose, onCh
           </div>
 
           <h3 style={{ fontSize: 13.5, margin: '0 0 10px' }}>Vehicles driven</h3>
-          <div className="table-scroll" style={{ marginBottom: 18 }}>
+          <div className="table-scroll responsive" style={{ marginBottom: 18 }}>
             <table>
               <thead><tr><th>Vehicle</th><th>Trips</th><th>Distance / hours</th><th>First driven</th><th>Last driven</th></tr></thead>
               <tbody>
@@ -385,16 +385,16 @@ export default function DriverDetailModal({ driver: initialDriver, onClose, onCh
                   const unit = row.vehicle?.metering_unit === 'hours' ? 'hrs' : 'km';
                   return (
                     <tr key={row.vehicleId}>
-                      <td>
+                      <td data-label="Vehicle">
                         <div className="veh-cell">
                           <span className="veh-icon"><TruckIcon /></span>
                           <div className="reg-no">{row.vehicle?.registration_number ?? '—'}</div>
                         </div>
                       </td>
-                      <td className="tnum">{row.trips}</td>
-                      <td className="tnum">{row.distance.toLocaleString('en-IN')} {unit}</td>
-                      <td className="tnum">{DATE_FMT.format(new Date(row.first))}</td>
-                      <td className="tnum">{DATE_FMT.format(new Date(row.last))}</td>
+                      <td data-label="Trips" className="tnum">{row.trips}</td>
+                      <td data-label="Distance / hours" className="tnum">{row.distance.toLocaleString('en-IN')} {unit}</td>
+                      <td data-label="First driven" className="tnum">{DATE_FMT.format(new Date(row.first))}</td>
+                      <td data-label="Last driven" className="tnum">{DATE_FMT.format(new Date(row.last))}</td>
                     </tr>
                   );
                 })}
@@ -422,21 +422,21 @@ export default function DriverDetailModal({ driver: initialDriver, onClose, onCh
             </div>
           </div>
 
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead><tr><th>Date</th><th>Particulars</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead>
               <tbody>
                 {rows?.map(({ entry, isCredit, amount, balance }) => (
                   <tr key={entry.id}>
-                    <td className="tnum">{DATE_FMT.format(new Date(entry.date))}</td>
-                    <td>{particulars(entry)}</td>
-                    <td className="tnum" style={{ color: !isCredit ? 'var(--critical)' : undefined }}>
+                    <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(entry.date))}</td>
+                    <td data-label="Particulars">{particulars(entry)}</td>
+                    <td data-label="Debit" className="tnum" style={{ color: !isCredit ? 'var(--critical)' : undefined }}>
                       {isCredit ? '–' : CURRENCY.format(amount)}
                     </td>
-                    <td className="tnum" style={{ color: isCredit ? 'var(--good)' : undefined }}>
+                    <td data-label="Credit" className="tnum" style={{ color: isCredit ? 'var(--good)' : undefined }}>
                       {isCredit ? CURRENCY.format(amount) : '–'}
                     </td>
-                    <td className="tnum" style={{ color: balance < 0 ? 'var(--critical)' : undefined }}>
+                    <td data-label="Balance" className="tnum" style={{ color: balance < 0 ? 'var(--critical)' : undefined }}>
                       {balance < 0 ? `−${CURRENCY.format(Math.abs(balance))}` : CURRENCY.format(balance)}
                     </td>
                   </tr>

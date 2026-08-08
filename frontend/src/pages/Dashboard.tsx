@@ -407,20 +407,20 @@ export default function Dashboard() {
               </span>
             )}
           </div>
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead><tr><th>Vendor</th><th>Type</th><th>Date</th><th>Amount</th></tr></thead>
               <tbody>
                 {pendingPayments.map((p) => (
                   <tr key={p.id}>
-                    <td>
+                    <td data-label="Vendor">
                       <button type="button" className="link-btn" onClick={() => openPendingVendor(p.vendorId)}>
                         {vendorName(p.vendorId)}
                       </button>
                     </td>
-                    <td>{p.kind}</td>
-                    <td className="tnum">{DATE_FMT.format(new Date(p.date))}</td>
-                    <td className="tnum">{CURRENCY.format(p.amount)}</td>
+                    <td data-label="Type">{p.kind}</td>
+                    <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(p.date))}</td>
+                    <td data-label="Amount" className="tnum">{CURRENCY.format(p.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -433,7 +433,7 @@ export default function Dashboard() {
           <div className="table-head">
             <h3>Fleet ({data.vehicles.length})</h3>
           </div>
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr>
@@ -447,7 +447,7 @@ export default function Dashboard() {
               <tbody>
                 {data.vehicles.map((v) => (
                   <tr key={v.id}>
-                    <td>
+                    <td data-label="Vehicle">
                       <button
                         type="button"
                         className="veh-cell btn-reset"
@@ -460,19 +460,19 @@ export default function Dashboard() {
                         </div>
                       </button>
                     </td>
-                    <td>
+                    <td data-label="Status">
                       <span className={`pill ${v.status === 'active' ? 'on' : v.status === 'in_service' ? 'svc' : 'off'}`}>
                         {humanize(v.status)}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Tracking">
                       <span className="track-tag">
                         {v.tracking_mode === 'gps' ? <GpsIcon /> : <ManualIcon />}
                         {v.tracking_mode === 'gps' ? 'GPS' : 'Manual'}
                       </span>
                     </td>
-                    <td className="tnum">{v.rc_valid_till ? DATE_FMT.format(new Date(v.rc_valid_till)) : '—'}</td>
-                    <td className="tnum">{v.current_meter ? `${Number(v.current_meter).toLocaleString('en-IN')} ${v.metering_unit}` : '—'}</td>
+                    <td data-label="RC valid till" className="tnum">{v.rc_valid_till ? DATE_FMT.format(new Date(v.rc_valid_till)) : '—'}</td>
+                    <td data-label="Current odometer" className="tnum">{v.current_meter ? `${Number(v.current_meter).toLocaleString('en-IN')} ${v.metering_unit}` : '—'}</td>
                   </tr>
                 ))}
               </tbody>

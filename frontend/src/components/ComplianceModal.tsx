@@ -78,21 +78,21 @@ export default function ComplianceModal({ holderType, holderId, holderLabel, doc
 
       {error && <div className="error-banner">{error}</div>}
 
-      <div className="table-scroll">
+      <div className="table-scroll responsive">
         <table>
           <thead><tr><th>Document</th><th>Valid till</th><th>Status</th><th>File</th><th></th></tr></thead>
           <tbody>
             {docs?.map((doc) => (
               <tr key={doc.id}>
-                <td>{humanize(doc.doc_type)}</td>
-                <td className="tnum">{doc.valid_till ? DATE_FMT.format(new Date(doc.valid_till)) : '—'}</td>
-                <td>
+                <td data-label="Document">{humanize(doc.doc_type)}</td>
+                <td data-label="Valid till" className="tnum">{doc.valid_till ? DATE_FMT.format(new Date(doc.valid_till)) : '—'}</td>
+                <td data-label="Status">
                   {doc.is_expired ? <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Expired</span>
                     : doc.is_due ? <span className="pill svc">Due soon</span>
                     : <span className="pill on">Valid</span>}
                 </td>
-                <td>{doc.file ? <a href={doc.file} target="_blank" rel="noreferrer" className="link-btn">View</a> : <span style={{ color: 'var(--ink-soft)' }}>—</span>}</td>
-                <td>
+                <td data-label="File">{doc.file ? <a href={doc.file} target="_blank" rel="noreferrer" className="link-btn">View</a> : <span style={{ color: 'var(--ink-soft)' }}>—</span>}</td>
+                <td data-label="">
                   <div className="row-actions">
                     <button className="link-btn" onClick={() => setEditing(doc)}>Edit</button>
                     <button className="link-btn" onClick={() => setRenewingDoc(doc)}>Renew</button>

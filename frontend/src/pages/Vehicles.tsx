@@ -146,7 +146,7 @@ export default function Vehicles() {
         {error && <div className="error-banner">{error}</div>}
 
         <section className="table-card">
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr>
@@ -166,7 +166,7 @@ export default function Vehicles() {
                   const alerts = alertsByVehicle.get(v.id) ?? 0;
                   return (
                   <tr key={v.id}>
-                    <td>
+                    <td data-label="Vehicle">
                       <button
                         type="button"
                         className="veh-cell"
@@ -177,20 +177,20 @@ export default function Vehicles() {
                         <div className="reg-no">{v.registration_number}</div>
                       </button>
                     </td>
-                    <td>{humanize(v.category)}</td>
-                    <td>{humanize(v.usage)}</td>
-                    <td>{v.tracking_mode === 'gps' ? 'GPS' : 'Manual'}</td>
-                    <td className="tnum">{v.number_of_tyres} + {v.spare_tyres} spare</td>
-                    <td className="tnum">{v.rc_valid_till ? DATE_FMT.format(new Date(v.rc_valid_till)) : '—'}</td>
-                    <td>
+                    <td data-label="Category">{humanize(v.category)}</td>
+                    <td data-label="Usage">{humanize(v.usage)}</td>
+                    <td data-label="Tracking">{v.tracking_mode === 'gps' ? 'GPS' : 'Manual'}</td>
+                    <td data-label="Tyres" className="tnum">{v.number_of_tyres} + {v.spare_tyres} spare</td>
+                    <td data-label="RC valid till" className="tnum">{v.rc_valid_till ? DATE_FMT.format(new Date(v.rc_valid_till)) : '—'}</td>
+                    <td data-label="Alerts">
                       {alerts > 0 ? (
                         <span className="pill off" style={{ background: 'var(--warn-soft)', color: 'var(--warn)' }}>⚠ {alerts}</span>
                       ) : (
                         <span className="pill on">✓ None</span>
                       )}
                     </td>
-                    <td><span className={`pill ${v.status === 'active' ? 'on' : v.status === 'in_service' ? 'svc' : 'off'}`}>{humanize(v.status)}</span></td>
-                    <td>
+                    <td data-label="Status"><span className={`pill ${v.status === 'active' ? 'on' : v.status === 'in_service' ? 'svc' : 'off'}`}>{humanize(v.status)}</span></td>
+                    <td data-label="">
                       <div className="row-actions">
                         <button className="link-btn" onClick={() => setComplianceVehicle(v)}>Compliance</button>
                         <button className="link-btn" onClick={() => { setEditing(v); setShowForm(true); }}>Edit</button>

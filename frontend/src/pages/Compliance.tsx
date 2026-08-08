@@ -93,7 +93,7 @@ export default function Compliance() {
         </div>
 
         <section className="table-card" style={{ marginTop: 14 }}>
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr><th>Holder</th><th>Document</th><th>Number</th><th>Valid till</th><th>Status</th><th></th></tr>
@@ -101,11 +101,11 @@ export default function Compliance() {
               <tbody>
                 {rows?.map((doc) => (
                   <tr key={doc.id}>
-                    <td className="reg-no">{doc.holder_display}</td>
-                    <td>{humanize(doc.doc_type)}</td>
-                    <td>{doc.doc_number || '—'}</td>
-                    <td className="tnum">{doc.valid_till ? DATE_FMT.format(new Date(doc.valid_till)) : '—'}</td>
-                    <td>
+                    <td data-label="Holder" className="reg-no">{doc.holder_display}</td>
+                    <td data-label="Document">{humanize(doc.doc_type)}</td>
+                    <td data-label="Number">{doc.doc_number || '—'}</td>
+                    <td data-label="Valid till" className="tnum">{doc.valid_till ? DATE_FMT.format(new Date(doc.valid_till)) : '—'}</td>
+                    <td data-label="Status">
                       {doc.is_expired ? (
                         <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Expired</span>
                       ) : doc.is_due ? (
@@ -114,7 +114,7 @@ export default function Compliance() {
                         <span className="pill on">Valid</span>
                       )}
                     </td>
-                    <td>
+                    <td data-label="">
                       <div className="row-actions">
                         <button className="link-btn" onClick={() => setRenewingDoc(doc)}>Renew</button>
                         <button className="link-btn danger" onClick={() => handleRetire(doc)}>Retire</button>

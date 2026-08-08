@@ -141,7 +141,7 @@ export default function VendorCustomerPayments() {
         </div>
 
         <section className="table-card">
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr>
@@ -151,7 +151,7 @@ export default function VendorCustomerPayments() {
               <tbody>
                 {rows.map((r) => (
                   <tr key={`${r.kind}-${r.id}`}>
-                    <td>
+                    <td data-label="Party">
                       <button
                         type="button"
                         className="veh-cell btn-reset"
@@ -161,8 +161,9 @@ export default function VendorCustomerPayments() {
                         <div className="reg-no" style={{ fontFamily: 'inherit' }}>{r.name}</div>
                       </button>
                     </td>
-                    <td style={{ textTransform: 'capitalize' }}>{r.kind}</td>
+                    <td data-label="Type" style={{ textTransform: 'capitalize' }}>{r.kind}</td>
                     <td
+                      data-label="Balance"
                       className="tnum"
                       style={{
                         fontWeight: 600,
@@ -171,8 +172,8 @@ export default function VendorCustomerPayments() {
                     >
                       {r.balance === 0 ? 'Settled' : `${r.balance < 0 ? '−' : ''}${CURRENCY.format(Math.abs(r.balance))}`}
                     </td>
-                    <td className="tnum">{r.openSince ? DATE_FMT.format(new Date(r.openSince)) : '—'}</td>
-                    <td>
+                    <td data-label="Open since" className="tnum">{r.openSince ? DATE_FMT.format(new Date(r.openSince)) : '—'}</td>
+                    <td data-label="Aging">
                       {r.balance !== 0 ? (
                         <span className={`pill ${r.bucket === 'current' ? 'on' : r.bucket === '30' ? 'svc' : 'off'}`}
                           style={r.bucket === '90' || r.bucket === '60' ? { background: 'var(--critical-soft)', color: 'var(--critical)' } : undefined}>

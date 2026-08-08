@@ -174,31 +174,31 @@ export default function PartItemDetailModal({ item, vendors, onClose, onChanged 
         </div>
       </div>
 
-      <div className="table-scroll">
+      <div className="table-scroll responsive">
         <table>
           <thead><tr><th>Date</th><th>Movement</th><th>Qty</th><th>Cost</th><th>From / used by</th><th>Balance</th></tr></thead>
           <tbody>
             {rows?.map(({ m, qty, running }) => (
               <tr key={m.id}>
-                <td className="tnum">{DATE_FMT.format(new Date(m.date))}</td>
-                <td>
+                <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(m.date))}</td>
+                <td data-label="Movement">
                   <span className={`pill ${m.movement_type === 'receipt' ? 'on' : 'svc'}`}>
                     {m.movement_type === 'receipt' ? 'Received' : 'Issued'}
                   </span>
                 </td>
-                <td className="tnum" style={{ color: m.movement_type === 'receipt' ? 'var(--good)' : 'var(--critical)' }}>
+                <td data-label="Qty" className="tnum" style={{ color: m.movement_type === 'receipt' ? 'var(--good)' : 'var(--critical)' }}>
                   {m.movement_type === 'receipt' ? '+' : '−'}{qty}
                 </td>
-                <td className="tnum">
+                <td data-label="Cost" className="tnum">
                   {m.total_cost ? CURRENCY.format(Number(m.total_cost)) : '—'}
                 </td>
-                <td>
+                <td data-label="From / used by">
                   {m.movement_type === 'receipt'
                     ? (vendors.find((v) => v.id === m.vendor)?.name || (m.unlisted_vendor_name ? `${m.unlisted_vendor_name} (not in system)` : '—'))
                     : sourceLabel(m)}
                   {m.notes && <div style={{ color: 'var(--ink-soft)', fontSize: 11.5 }}>{m.notes}</div>}
                 </td>
-                <td className="tnum">{running}</td>
+                <td data-label="Balance" className="tnum">{running}</td>
               </tr>
             ))}
           </tbody>

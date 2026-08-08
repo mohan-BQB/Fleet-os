@@ -263,18 +263,18 @@ export default function VehicleDetailModal({ vehicle: initialVehicle, onClose, o
                 </div>
               )}
             </div>
-            <div className="table-scroll">
+            <div className="table-scroll responsive">
               <table>
                 <thead><tr><th>Position</th><th>Brand</th><th>Size</th><th>Serial</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                   {tyres?.map((tyre) => (
                     <tr key={tyre.id}>
-                      <td>{humanize(tyre.position)}</td>
-                      <td>{tyre.brand || '—'}</td>
-                      <td>{tyre.size || '—'}</td>
-                      <td>{tyre.serial_number || '—'}</td>
-                      <td><span className={`pill ${tyre.status === 'fitted' ? 'on' : tyre.status === 'spare' ? 'svc' : 'off'}`}>{humanize(tyre.status)}</span></td>
-                      <td>
+                      <td data-label="Position">{humanize(tyre.position)}</td>
+                      <td data-label="Brand">{tyre.brand || '—'}</td>
+                      <td data-label="Size">{tyre.size || '—'}</td>
+                      <td data-label="Serial">{tyre.serial_number || '—'}</td>
+                      <td data-label="Status"><span className={`pill ${tyre.status === 'fitted' ? 'on' : tyre.status === 'spare' ? 'svc' : 'off'}`}>{humanize(tyre.status)}</span></td>
+                      <td data-label="">
                         {canEdit && tyre.status !== 'retired' && (
                           <button className="link-btn" onClick={() => { setEditingTyre(tyre); setShowTyreForm(true); }}>Edit</button>
                         )}
@@ -294,7 +294,7 @@ export default function VehicleDetailModal({ vehicle: initialVehicle, onClose, o
               <h3>Documents <span className="n">{docs?.length ?? '…'}</span></h3>
               {canEdit && <button type="button" className="link-btn" onClick={() => setShowComplianceModal(true)}>+ Add document</button>}
             </div>
-            <div className="table-scroll">
+            <div className="table-scroll responsive">
               <table>
                 <thead><tr><th>Document</th><th>Number</th><th>Valid till</th><th>Status</th><th></th></tr></thead>
                 <tbody>
@@ -322,16 +322,16 @@ export default function VehicleDetailModal({ vehicle: initialVehicle, onClose, o
               <h3>Schedules <span className="n">{schedules.length}</span></h3>
               {canEdit && <button type="button" className="link-btn" onClick={() => { setEditingSchedule(null); setShowScheduleForm(true); }}>+ Add schedule</button>}
             </div>
-            <div className="table-scroll">
+            <div className="table-scroll responsive">
               <table>
                 <thead><tr><th>Part</th><th>Interval</th><th>Last done</th><th></th></tr></thead>
                 <tbody>
                   {schedules.map((s) => (
                     <tr key={s.id}>
-                      <td>{s.part_name}</td>
-                      <td>{[s.interval_km ? `${s.interval_km} km` : null, s.interval_days ? `${s.interval_days} days` : null].filter(Boolean).join(' / ') || '—'}</td>
-                      <td>{s.last_done_date ? DATE_FMT.format(new Date(s.last_done_date)) : '—'}</td>
-                      <td>{canEdit && <button className="link-btn" onClick={() => { setEditingSchedule(s); setShowScheduleForm(true); }}>Edit</button>}</td>
+                      <td data-label="Part">{s.part_name}</td>
+                      <td data-label="Interval">{[s.interval_km ? `${s.interval_km} km` : null, s.interval_days ? `${s.interval_days} days` : null].filter(Boolean).join(' / ') || '—'}</td>
+                      <td data-label="Last done">{s.last_done_date ? DATE_FMT.format(new Date(s.last_done_date)) : '—'}</td>
+                      <td data-label="">{canEdit && <button className="link-btn" onClick={() => { setEditingSchedule(s); setShowScheduleForm(true); }}>Edit</button>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -343,15 +343,15 @@ export default function VehicleDetailModal({ vehicle: initialVehicle, onClose, o
               <h3>Service log <span className="n">{maintenanceLogs?.length ?? '…'}</span></h3>
               {canEdit && <button type="button" className="link-btn" onClick={() => setShowLogForm(true)}>+ Log service</button>}
             </div>
-            <div className="table-scroll">
+            <div className="table-scroll responsive">
               <table>
                 <thead><tr><th>Date</th><th>Part</th><th>Vendor</th></tr></thead>
                 <tbody>
                   {maintenanceLogs?.map((log) => (
                     <tr key={log.id}>
-                      <td className="tnum">{DATE_FMT.format(new Date(log.date))}</td>
-                      <td>{log.part_name}</td>
-                      <td>{log.vendor || '—'}</td>
+                      <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(log.date))}</td>
+                      <td data-label="Part">{log.part_name}</td>
+                      <td data-label="Vendor">{log.vendor || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -363,15 +363,15 @@ export default function VehicleDetailModal({ vehicle: initialVehicle, onClose, o
               <h3>Fuel log <span className="n">{fuelLogs?.length ?? '…'}</span></h3>
               {canEdit && <button type="button" className="link-btn" onClick={() => setShowFuelForm(true)}>+ Add</button>}
             </div>
-            <div className="table-scroll">
+            <div className="table-scroll responsive">
               <table>
                 <thead><tr><th>Date</th><th>Litres</th><th>Amount</th></tr></thead>
                 <tbody>
                   {fuelLogs?.map((log) => (
                     <tr key={log.id}>
-                      <td className="tnum">{DATE_FMT.format(new Date(log.date))}</td>
-                      <td className="tnum">{Number(log.litres).toLocaleString('en-IN')}</td>
-                      <td className="tnum">{CURRENCY.format(Number(log.amount))}</td>
+                      <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(log.date))}</td>
+                      <td data-label="Litres" className="tnum">{Number(log.litres).toLocaleString('en-IN')}</td>
+                      <td data-label="Amount" className="tnum">{CURRENCY.format(Number(log.amount))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -429,16 +429,16 @@ export default function VehicleDetailModal({ vehicle: initialVehicle, onClose, o
             )}
 
             <h3 style={{ fontSize: 13.5, margin: '0 0 10px' }}>Expense history</h3>
-            <div className="table-scroll">
+            <div className="table-scroll responsive">
               <table>
                 <thead><tr><th>Date</th><th>Head</th><th>Vendor</th><th>Amount</th></tr></thead>
                 <tbody>
                   {expenseHistory?.map((exp) => (
                     <tr key={exp.id}>
-                      <td className="tnum">{DATE_FMT.format(new Date(exp.date))}</td>
-                      <td>{headName(exp.expense_head)}</td>
-                      <td>{exp.vendor || '—'}</td>
-                      <td className="tnum">{CURRENCY.format(Number(exp.amount))}</td>
+                      <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(exp.date))}</td>
+                      <td data-label="Head">{headName(exp.expense_head)}</td>
+                      <td data-label="Vendor">{exp.vendor || '—'}</td>
+                      <td data-label="Amount" className="tnum">{CURRENCY.format(Number(exp.amount))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -538,15 +538,15 @@ function ComplianceRow({
   return (
     <>
       <tr>
-        <td>{humanize(doc.doc_type)}</td>
-        <td>{doc.doc_number || '—'}</td>
-        <td className="tnum">{doc.valid_till ? DATE_FMT.format(new Date(doc.valid_till)) : '—'}</td>
-        <td>
+        <td data-label="Document">{humanize(doc.doc_type)}</td>
+        <td data-label="Number">{doc.doc_number || '—'}</td>
+        <td data-label="Valid till" className="tnum">{doc.valid_till ? DATE_FMT.format(new Date(doc.valid_till)) : '—'}</td>
+        <td data-label="Status">
           {doc.is_expired ? <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Expired</span>
             : doc.is_due ? <span className="pill svc">Due soon</span>
             : <span className="pill on">Valid</span>}
         </td>
-        <td>
+        <td data-label="">
           {canEdit && (
             <div className="row-actions">
               <button className="link-btn" onClick={() => setRenewing((r) => !r)}>Renew</button>
@@ -624,23 +624,23 @@ function VehicleLoanTab({
             &middot; {CURRENCY.format(Number(loan.emi_amount))}/mo &middot; {loan.tenure_months} months from {DATE_FMT.format(new Date(loan.start_date))}
             &middot; {loan.outstanding_installments} installment{loan.outstanding_installments === 1 ? '' : 's'} outstanding
           </div>
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead><tr><th>Due date</th><th>Amount</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {loan.installments.map((inst) => (
                   <Fragment key={inst.id}>
                     <tr>
-                      <td className="tnum">{DATE_FMT.format(new Date(inst.due_date))}</td>
-                      <td className="tnum">{CURRENCY.format(Number(inst.amount))}</td>
-                      <td>
+                      <td data-label="Due date" className="tnum">{DATE_FMT.format(new Date(inst.due_date))}</td>
+                      <td data-label="Amount" className="tnum">{CURRENCY.format(Number(inst.amount))}</td>
+                      <td data-label="Status">
                         {inst.paid
                           ? <span className="pill on">Paid{inst.paid_date ? ` · ${DATE_FMT.format(new Date(inst.paid_date))}` : ''}</span>
                           : inst.is_overdue
                             ? <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Overdue</span>
                             : <span className="pill svc">Upcoming</span>}
                       </td>
-                      <td>
+                      <td data-label="">
                         {canChangeStatus && !inst.paid && (
                           <button className="link-btn" onClick={() => setPayingId(payingId === inst.id ? null : inst.id)}>
                             Mark paid

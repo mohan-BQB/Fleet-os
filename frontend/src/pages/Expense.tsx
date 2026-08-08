@@ -408,15 +408,15 @@ export default function Expense() {
             </div>
 
             <section className="table-card" style={{ marginTop: 14 }}>
-              <div className="table-scroll">
+              <div className="table-scroll responsive">
                 <table>
                   <thead><tr><th>Group</th><th>Name</th><th></th></tr></thead>
                   <tbody>
                     {visibleHeads?.map((h) => (
                       <tr key={h.id}>
-                        <td><GroupPill group={h.group} /></td>
-                        <td>{h.name}</td>
-                        <td>
+                        <td data-label="Group"><GroupPill group={h.group} /></td>
+                        <td data-label="Name">{h.name}</td>
+                        <td data-label="">
                           <button type="button" className="link-btn" onClick={() => { setEditingHead(h); setShowHeadForm(true); }}>
                             Rename
                           </button>
@@ -507,7 +507,7 @@ export default function Expense() {
                       </h3>
                       <span style={{ fontSize: 13.5, fontWeight: 700 }}>{CURRENCY.format(g.total)}</span>
                     </div>
-                    <div className="table-scroll">
+                    <div className="table-scroll responsive">
                       <table>
                         <thead>
                           <tr><th>Vehicle</th><th>Source</th><th>Status</th><th>Date</th><th>Amount</th><th>Vendor</th><th>Payment</th><th></th></tr>
@@ -538,7 +538,7 @@ export default function Expense() {
               </>
             ) : (
               <section className="table-card" style={{ marginTop: 14 }}>
-                <div className="table-scroll">
+                <div className="table-scroll responsive">
                   <table>
                     <thead>
                       <tr><th>Vehicle</th><th>Head</th><th>Source</th><th>Status</th><th>Date</th><th>Amount</th><th>Vendor</th><th>Payment</th><th></th></tr>
@@ -585,7 +585,7 @@ export default function Expense() {
             </div>
 
             <section className="table-card" style={{ marginTop: 14 }}>
-              <div className="table-scroll">
+              <div className="table-scroll responsive">
                 <table>
                   <thead>
                     <tr><th>Date</th><th>Type</th><th>Vehicle / Driver</th><th>Description</th><th>Amount</th><th>Status</th><th></th></tr>
@@ -593,22 +593,22 @@ export default function Expense() {
                   <tbody>
                     {costRows.map((row) => (
                       <tr key={`${row.kind}:${row.id}`}>
-                        <td className="tnum">{DATE_FMT.format(new Date(row.date))}</td>
-                        <td>{COST_ROW_KIND_LABELS[row.kind]}</td>
-                        <td className="reg-no">
+                        <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(row.date))}</td>
+                        <td data-label="Type">{COST_ROW_KIND_LABELS[row.kind]}</td>
+                        <td data-label="Vehicle / Driver" className="reg-no">
                           {row.kind === 'expense' && vehicleName(row.exp.vehicle)}
                           {row.kind === 'fuel' && vehicleName(row.log.vehicle)}
                           {row.kind === 'emi' && row.inst.registration_number}
                           {row.kind === 'driver_cost' && driverName(row.entry.driver)}
                         </td>
-                        <td>
+                        <td data-label="Description">
                           {row.kind === 'expense' && headName(row.exp.expense_head)}
                           {row.kind === 'fuel' && `Fuel${row.log.filled_by ? ` — ${row.log.filled_by}` : ''}`}
                           {row.kind === 'emi' && `EMI installment (due ${DATE_FMT.format(new Date(row.inst.due_date))})`}
                           {row.kind === 'driver_cost' && `Driver ${humanize(row.entry.subtype || row.entry.entry_type)}`}
                         </td>
-                        <td className="tnum">{CURRENCY.format(costRowAmount(row))}</td>
-                        <td>
+                        <td data-label="Amount" className="tnum">{CURRENCY.format(costRowAmount(row))}</td>
+                        <td data-label="Status">
                           {row.kind === 'expense' && (
                             <ApprovalStatusPill label={APPROVAL_LABEL[row.exp.approval_status]} tone={APPROVAL_TONE[row.exp.approval_status]} />
                           )}
@@ -623,7 +623,7 @@ export default function Expense() {
                           )}
                           {row.kind === 'driver_cost' && <span className="pill off">Recorded</span>}
                         </td>
-                        <td>
+                        <td data-label="">
                           <div className="row-actions">
                             {row.kind === 'expense' && row.exp.approval_status === 'pending' && canDecideExpense && (
                               <>
@@ -755,21 +755,21 @@ function ExpenseRow({
 
   return (
     <tr>
-      <td className="reg-no">{vehicleName(exp.vehicle)}</td>
-      {showHead && <td>{headName}</td>}
-      <td><ExpenseSourceBadge expense={exp} /></td>
-      <td><ApprovalStatusPill label={APPROVAL_LABEL[exp.approval_status]} tone={APPROVAL_TONE[exp.approval_status]} /></td>
-      <td className="tnum">{DATE_FMT.format(new Date(exp.date))}</td>
-      <td className="tnum">{CURRENCY.format(Number(exp.amount))}</td>
-      <td>{exp.vendor ? vendorName(exp.vendor) : exp.unlisted_vendor_name ? `${exp.unlisted_vendor_name} (not in system)` : '—'}</td>
-      <td>
+      <td data-label="Vehicle" className="reg-no">{vehicleName(exp.vehicle)}</td>
+      {showHead && <td data-label="Head">{headName}</td>}
+      <td data-label="Source"><ExpenseSourceBadge expense={exp} /></td>
+      <td data-label="Status"><ApprovalStatusPill label={APPROVAL_LABEL[exp.approval_status]} tone={APPROVAL_TONE[exp.approval_status]} /></td>
+      <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(exp.date))}</td>
+      <td data-label="Amount" className="tnum">{CURRENCY.format(Number(exp.amount))}</td>
+      <td data-label="Vendor">{exp.vendor ? vendorName(exp.vendor) : exp.unlisted_vendor_name ? `${exp.unlisted_vendor_name} (not in system)` : '—'}</td>
+      <td data-label="Payment">
         {exp.is_paid === null ? '—' : exp.is_paid ? (
           <span className="pill on">Paid</span>
         ) : (
           <button type="button" className="link-btn" onClick={onMarkPaid}>Mark paid</button>
         )}
       </td>
-      <td>
+      <td data-label="">
         <div className="row-actions">
           {exp.approval_status === 'pending' && canDecide && (
             <>

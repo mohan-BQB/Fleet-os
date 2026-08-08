@@ -205,18 +205,18 @@ function UtilizationReport({
         <h3>Fleet utilization</h3>
         <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
       </div>
-      <div className="table-scroll">
+      <div className="table-scroll responsive">
         <table>
           <thead><tr><th>Vehicle</th><th>Trips</th><th>Distance</th><th>Active days</th><th>Freight</th><th></th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.vehicle}>
-                <td className="reg-no">{vehicleName(r.vehicle)}</td>
-                <td className="tnum">{r.trips}</td>
-                <td className="tnum">{r.distance.toLocaleString('en-IN')} km</td>
-                <td className="tnum">{r.activeDays}</td>
-                <td className="tnum">{CURRENCY.format(r.freight)}</td>
-                <td>{r.trips === 0 && <span className="pill off">Idle</span>}</td>
+                <td data-label="Vehicle" className="reg-no">{vehicleName(r.vehicle)}</td>
+                <td data-label="Trips" className="tnum">{r.trips}</td>
+                <td data-label="Distance" className="tnum">{r.distance.toLocaleString('en-IN')} km</td>
+                <td data-label="Active days" className="tnum">{r.activeDays}</td>
+                <td data-label="Freight" className="tnum">{CURRENCY.format(r.freight)}</td>
+                <td data-label="">{r.trips === 0 && <span className="pill off">Idle</span>}</td>
               </tr>
             ))}
           </tbody>
@@ -245,29 +245,29 @@ function PnLReport({ pnl }: { pnl: DashboardPnL | null }) {
         <h3>P&amp;L summary</h3>
         <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
       </div>
-      <div className="table-scroll">
+      <div className="table-scroll responsive">
         <table>
           <thead><tr><th>Vehicle</th><th>Revenue</th><th>Fuel</th><th>Driver</th><th>Other</th><th>Net profit</th></tr></thead>
           <tbody>
             {pnl.by_vehicle.map((v) => (
               <tr key={v.vehicle_id}>
-                <td className="reg-no">{v.registration_number}</td>
-                <td className="tnum">{CURRENCY.format(v.revenue)}</td>
-                <td className="tnum">{CURRENCY.format(v.fuel_cost)}</td>
-                <td className="tnum">{CURRENCY.format(v.driver_cost)}</td>
-                <td className="tnum">{CURRENCY.format(v.other_expenses)}</td>
-                <td className="tnum" style={{ color: v.net_profit >= 0 ? 'var(--good)' : 'var(--critical)', fontWeight: 600 }}>
+                <td data-label="Vehicle" className="reg-no">{v.registration_number}</td>
+                <td data-label="Revenue" className="tnum">{CURRENCY.format(v.revenue)}</td>
+                <td data-label="Fuel" className="tnum">{CURRENCY.format(v.fuel_cost)}</td>
+                <td data-label="Driver" className="tnum">{CURRENCY.format(v.driver_cost)}</td>
+                <td data-label="Other" className="tnum">{CURRENCY.format(v.other_expenses)}</td>
+                <td data-label="Net profit" className="tnum" style={{ color: v.net_profit >= 0 ? 'var(--good)' : 'var(--critical)', fontWeight: 600 }}>
                   {CURRENCY.format(v.net_profit)}
                 </td>
               </tr>
             ))}
             <tr style={{ fontWeight: 700 }}>
-              <td>Company total</td>
-              <td className="tnum">{CURRENCY.format(pnl.totals.revenue)}</td>
-              <td className="tnum">{CURRENCY.format(pnl.totals.fuel_cost)}</td>
-              <td className="tnum">{CURRENCY.format(pnl.totals.driver_cost + pnl.totals.unattributed_driver_cost)}</td>
-              <td className="tnum">{CURRENCY.format(pnl.totals.other_expenses + pnl.totals.unattributed_expenses)}</td>
-              <td className="tnum" style={{ color: pnl.totals.net_profit >= 0 ? 'var(--good)' : 'var(--critical)' }}>
+              <td data-label="Vehicle">Company total</td>
+              <td data-label="Revenue" className="tnum">{CURRENCY.format(pnl.totals.revenue)}</td>
+              <td data-label="Fuel" className="tnum">{CURRENCY.format(pnl.totals.fuel_cost)}</td>
+              <td data-label="Driver" className="tnum">{CURRENCY.format(pnl.totals.driver_cost + pnl.totals.unattributed_driver_cost)}</td>
+              <td data-label="Other" className="tnum">{CURRENCY.format(pnl.totals.other_expenses + pnl.totals.unattributed_expenses)}</td>
+              <td data-label="Net profit" className="tnum" style={{ color: pnl.totals.net_profit >= 0 ? 'var(--good)' : 'var(--critical)' }}>
                 {CURRENCY.format(pnl.totals.net_profit)}
               </td>
             </tr>
@@ -301,16 +301,16 @@ function ComplianceReport({ documents, start, end }: { documents: ComplianceDocu
         <h3>Documents expiring in this window</h3>
         <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
       </div>
-      <div className="table-scroll">
+      <div className="table-scroll responsive">
         <table>
           <thead><tr><th>Document</th><th>Holder</th><th>Valid till</th><th>Status</th></tr></thead>
           <tbody>
             {rows.map((d) => (
               <tr key={d.id}>
-                <td>{humanize(d.doc_type)}</td>
-                <td>{d.holder_display}</td>
-                <td className="tnum">{d.valid_till ? DATE_FMT.format(new Date(d.valid_till)) : '—'}</td>
-                <td>
+                <td data-label="Document">{humanize(d.doc_type)}</td>
+                <td data-label="Holder">{d.holder_display}</td>
+                <td data-label="Valid till" className="tnum">{d.valid_till ? DATE_FMT.format(new Date(d.valid_till)) : '—'}</td>
+                <td data-label="Status">
                   {d.is_expired ? <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Expired</span>
                     : d.is_due ? <span className="pill svc">Due soon</span>
                     : <span className="pill on">Valid</span>}
@@ -355,18 +355,18 @@ function LedgerReport({
         <h3>Driver ledger summary</h3>
         <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
       </div>
-      <div className="table-scroll">
+      <div className="table-scroll responsive">
         <table>
           <thead><tr><th>Driver</th><th>Advance</th><th>Wage</th><th>Bonus</th><th>Deduction</th><th>Net</th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.driver}>
-                <td>{driverName(r.driver)}</td>
-                <td className="tnum">{CURRENCY.format(r.advance)}</td>
-                <td className="tnum">{CURRENCY.format(r.wage)}</td>
-                <td className="tnum">{CURRENCY.format(r.bonus)}</td>
-                <td className="tnum">{CURRENCY.format(r.deduction)}</td>
-                <td className="tnum" style={{ fontWeight: 600 }}>{CURRENCY.format(r.net)}</td>
+                <td data-label="Driver">{driverName(r.driver)}</td>
+                <td data-label="Advance" className="tnum">{CURRENCY.format(r.advance)}</td>
+                <td data-label="Wage" className="tnum">{CURRENCY.format(r.wage)}</td>
+                <td data-label="Bonus" className="tnum">{CURRENCY.format(r.bonus)}</td>
+                <td data-label="Deduction" className="tnum">{CURRENCY.format(r.deduction)}</td>
+                <td data-label="Net" className="tnum" style={{ fontWeight: 600 }}>{CURRENCY.format(r.net)}</td>
               </tr>
             ))}
           </tbody>
@@ -411,19 +411,19 @@ function MaintenanceDueReport({
         <h3>Maintenance due — fleet-wide</h3>
         <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
       </div>
-      <div className="table-scroll">
+      <div className="table-scroll responsive">
         <table>
           <thead><tr><th>Vehicle</th><th>Part</th><th>Next due</th><th>Remaining</th><th>Status</th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td className="reg-no">{vehicleName(r.vehicle)}</td>
-                <td>{r.part_name}</td>
-                <td className="tnum">{r.next_due_date ? DATE_FMT.format(new Date(r.next_due_date)) : '—'}</td>
-                <td className="tnum">
+                <td data-label="Vehicle" className="reg-no">{vehicleName(r.vehicle)}</td>
+                <td data-label="Part">{r.part_name}</td>
+                <td data-label="Next due" className="tnum">{r.next_due_date ? DATE_FMT.format(new Date(r.next_due_date)) : '—'}</td>
+                <td data-label="Remaining" className="tnum">
                   {r.km_remaining ? `${Number(r.km_remaining).toLocaleString('en-IN')} km` : r.daysRemaining != null ? `${r.daysRemaining} days` : '—'}
                 </td>
-                <td>
+                <td data-label="Status">
                   {r.is_overdue
                     ? <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Overdue</span>
                     : <span className="pill on">Upcoming</span>}
@@ -537,7 +537,7 @@ function FuelReport({
           <h3>Fuel report — by vehicle</h3>
           <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
         </div>
-        <div className="table-scroll">
+        <div className="table-scroll responsive">
           <table>
             <thead><tr><th>Vehicle</th><th>Fills</th><th>Litres</th><th>Spend</th><th>Avg rate/litre</th><th>Mileage</th></tr></thead>
             <tbody>
@@ -545,12 +545,12 @@ function FuelReport({
                 const flagged = r.mileage != null && rows.fleetAvgMileage != null && r.mileage < rows.fleetAvgMileage * 0.85;
                 return (
                   <tr key={r.vehicle}>
-                    <td className="reg-no">{vehicleReg(r.vehicle)}</td>
-                    <td className="tnum">{r.fills}</td>
-                    <td className="tnum">{r.litres.toLocaleString('en-IN', { maximumFractionDigits: 1 })} L</td>
-                    <td className="tnum">{CURRENCY.format(r.spend)}</td>
-                    <td className="tnum">{CURRENCY.format(r.avgRate)}</td>
-                    <td className="tnum" style={{ color: flagged ? 'var(--critical)' : undefined, fontWeight: flagged ? 600 : undefined }}>
+                    <td data-label="Vehicle" className="reg-no">{vehicleReg(r.vehicle)}</td>
+                    <td data-label="Fills" className="tnum">{r.fills}</td>
+                    <td data-label="Litres" className="tnum">{r.litres.toLocaleString('en-IN', { maximumFractionDigits: 1 })} L</td>
+                    <td data-label="Spend" className="tnum">{CURRENCY.format(r.spend)}</td>
+                    <td data-label="Avg rate/litre" className="tnum">{CURRENCY.format(r.avgRate)}</td>
+                    <td data-label="Mileage" className="tnum" style={{ color: flagged ? 'var(--critical)' : undefined, fontWeight: flagged ? 600 : undefined }}>
                       {r.mileage != null ? `${r.mileage.toFixed(2)} km/L` : '—'}
                       {flagged && ' ⚠'}
                     </td>
@@ -569,16 +569,16 @@ function FuelReport({
 
       <section className="table-card">
         <div className="table-head"><h3>By fuel station</h3></div>
-        <div className="table-scroll">
+        <div className="table-scroll responsive">
           <table>
             <thead><tr><th>Station</th><th>Litres</th><th>Spend</th><th>Avg rate/litre</th></tr></thead>
             <tbody>
               {byStation.map((r) => (
                 <tr key={r.station || 'unlisted'}>
-                  <td>{r.station ? vendorName(r.station) : 'Unlisted'}</td>
-                  <td className="tnum">{r.litres.toLocaleString('en-IN', { maximumFractionDigits: 1 })} L</td>
-                  <td className="tnum">{CURRENCY.format(r.spend)}</td>
-                  <td className="tnum">{CURRENCY.format(r.avgRate)}</td>
+                  <td data-label="Station">{r.station ? vendorName(r.station) : 'Unlisted'}</td>
+                  <td data-label="Litres" className="tnum">{r.litres.toLocaleString('en-IN', { maximumFractionDigits: 1 })} L</td>
+                  <td data-label="Spend" className="tnum">{CURRENCY.format(r.spend)}</td>
+                  <td data-label="Avg rate/litre" className="tnum">{CURRENCY.format(r.avgRate)}</td>
                 </tr>
               ))}
             </tbody>
@@ -639,7 +639,7 @@ function ExpenseRegisterReport({
         </h3>
         <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
       </div>
-      <div className="table-scroll">
+      <div className="table-scroll responsive">
         <table>
           <thead><tr><th>Group</th><th>Head</th><th>Entries</th><th>Amount</th><th></th></tr></thead>
           <tbody>
@@ -647,18 +647,18 @@ function ExpenseRegisterReport({
               const pct = total > 0 ? Math.round((r.amount / total) * 100) : 0;
               return (
                 <tr key={r.name}>
-                  <td>{humanize(r.group)}</td>
-                  <td>{r.name}</td>
-                  <td className="tnum">{r.count}</td>
-                  <td className="tnum">{CURRENCY.format(r.amount)}</td>
-                  <td className="tnum" style={{ color: 'var(--ink-soft)', width: 40 }}>{pct}%</td>
+                  <td data-label="Group">{humanize(r.group)}</td>
+                  <td data-label="Head">{r.name}</td>
+                  <td data-label="Entries" className="tnum">{r.count}</td>
+                  <td data-label="Amount" className="tnum">{CURRENCY.format(r.amount)}</td>
+                  <td data-label="" className="tnum" style={{ color: 'var(--ink-soft)', width: 40 }}>{pct}%</td>
                 </tr>
               );
             })}
             <tr style={{ fontWeight: 700 }}>
-              <td colSpan={3}>Total</td>
-              <td className="tnum">{CURRENCY.format(total)}</td>
-              <td></td>
+              <td data-label="Group" colSpan={3}>Total</td>
+              <td data-label="Amount" className="tnum">{CURRENCY.format(total)}</td>
+              <td data-label=""></td>
             </tr>
           </tbody>
         </table>
@@ -716,15 +716,15 @@ function VendorCustomerLedgerReport({
         <h3>Vendor &amp; customer ledger — {CURRENCY.format(totalPayable)} payable · {CURRENCY.format(totalReceivable)} receivable</h3>
         <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
       </div>
-      <div className="table-scroll">
+      <div className="table-scroll responsive">
         <table>
           <thead><tr><th>Party</th><th>Type</th><th>Balance</th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={`${r.kind}-${r.name}`}>
-                <td>{r.name}</td>
-                <td>{r.kind}</td>
-                <td className="tnum" style={{ fontWeight: 600, color: r.balance > 0 ? 'var(--warn)' : 'var(--good)' }}>
+                <td data-label="Party">{r.name}</td>
+                <td data-label="Type">{r.kind}</td>
+                <td data-label="Balance" className="tnum" style={{ fontWeight: 600, color: r.balance > 0 ? 'var(--warn)' : 'var(--good)' }}>
                   {r.balance < 0 ? '−' : ''}{CURRENCY.format(Math.abs(r.balance))}
                 </td>
               </tr>
@@ -764,16 +764,16 @@ function EmiDueReport({ installments }: { installments: VehicleLoanInstallment[]
         <h3>EMI due — fleet-wide · {CURRENCY.format(totalDue)}</h3>
         <button className="link-btn no-print" onClick={exportCsv}><DownloadIcon className="mono" /> Export CSV</button>
       </div>
-      <div className="table-scroll">
+      <div className="table-scroll responsive">
         <table>
           <thead><tr><th>Vehicle</th><th>Due date</th><th>Amount</th><th>Status</th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td className="reg-no">{r.registration_number}</td>
-                <td className="tnum">{DATE_FMT.format(new Date(r.due_date))}</td>
-                <td className="tnum">{CURRENCY.format(Number(r.amount))}</td>
-                <td>
+                <td data-label="Vehicle" className="reg-no">{r.registration_number}</td>
+                <td data-label="Due date" className="tnum">{DATE_FMT.format(new Date(r.due_date))}</td>
+                <td data-label="Amount" className="tnum">{CURRENCY.format(Number(r.amount))}</td>
+                <td data-label="Status">
                   {r.is_overdue
                     ? <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Overdue</span>
                     : <span className="pill svc">Upcoming</span>}

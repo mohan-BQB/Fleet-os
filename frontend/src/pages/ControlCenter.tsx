@@ -66,7 +66,7 @@ export default function ControlCenter() {
         {error && <div className="error-banner">{error}</div>}
 
         <section className="table-card">
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr>
@@ -77,13 +77,13 @@ export default function ControlCenter() {
               <tbody>
                 {orgs?.map((org) => (
                   <tr key={org.id}>
-                    <td>{org.name}</td>
-                    <td><span className={`pill ${org.is_active ? 'on' : 'off'}`}>{org.is_active ? 'Active' : 'Suspended'}</span></td>
-                    <td className="tnum">{org.user_count}</td>
-                    <td className="tnum">{org.vehicle_count}</td>
-                    <td className="tnum">{org.driver_count}</td>
-                    <td className="tnum">{DATE_FMT.format(new Date(org.created_at))}</td>
-                    <td>
+                    <td data-label="Name">{org.name}</td>
+                    <td data-label="Status"><span className={`pill ${org.is_active ? 'on' : 'off'}`}>{org.is_active ? 'Active' : 'Suspended'}</span></td>
+                    <td data-label="Users" className="tnum">{org.user_count}</td>
+                    <td data-label="Vehicles" className="tnum">{org.vehicle_count}</td>
+                    <td data-label="Drivers" className="tnum">{org.driver_count}</td>
+                    <td data-label="Created" className="tnum">{DATE_FMT.format(new Date(org.created_at))}</td>
+                    <td data-label="">
                       <div className="row-actions">
                         <button className="link-btn" onClick={() => setEditingModules(org)}>Modules</button>
                         <button className="link-btn" onClick={() => handleImpersonate(org)}>View as</button>

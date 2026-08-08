@@ -69,7 +69,7 @@ export default function DriverLedger() {
         {error && <div className="error-banner">{error}</div>}
 
         <section className="table-card">
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr><th>Driver</th><th>Type</th><th>Date</th><th>Amount</th><th>Trip</th><th>Remarks</th><th></th></tr>
@@ -77,17 +77,17 @@ export default function DriverLedger() {
               <tbody>
                 {entries?.map((entry) => (
                   <tr key={entry.id}>
-                    <td>{driverName(entry.driver)}</td>
-                    <td>
+                    <td data-label="Driver">{driverName(entry.driver)}</td>
+                    <td data-label="Type">
                       <span className={`pill ${entry.entry_type === 'wage' || entry.entry_type === 'bonus' ? 'on' : entry.entry_type === 'advance' ? 'svc' : 'off'}`}>
                         {humanize(entry.entry_type)}
                       </span>
                     </td>
-                    <td className="tnum">{DATE_FMT.format(new Date(entry.date))}</td>
-                    <td className="tnum">₹{Number(entry.amount).toLocaleString('en-IN')}</td>
-                    <td>{tripSheetLabel(entry.trip_sheet)}</td>
-                    <td>{entry.remarks || '—'}</td>
-                    <td>
+                    <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(entry.date))}</td>
+                    <td data-label="Amount" className="tnum">₹{Number(entry.amount).toLocaleString('en-IN')}</td>
+                    <td data-label="Trip">{tripSheetLabel(entry.trip_sheet)}</td>
+                    <td data-label="Remarks">{entry.remarks || '—'}</td>
+                    <td data-label="">
                       <div className="row-actions">
                         <button className="link-btn" onClick={() => { setEditing(entry); setShowForm(true); }}>Edit</button>
                         <button className="link-btn danger" onClick={() => handleRetire(entry)}>Retire</button>

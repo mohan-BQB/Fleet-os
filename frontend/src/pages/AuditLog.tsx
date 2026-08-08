@@ -57,7 +57,7 @@ export default function AuditLog() {
             {MODEL_NAMES.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
-        <div className="table-scroll">
+        <div className="table-scroll responsive">
           <table>
             <thead>
               <tr><th>When</th><th>User</th><th>Action</th><th>Record</th><th>Changes</th></tr>
@@ -65,11 +65,11 @@ export default function AuditLog() {
             <tbody>
               {entries?.map((entry) => (
                 <tr key={entry.id}>
-                  <td className="tnum">{DATE_TIME_FMT.format(new Date(entry.created_at))}</td>
-                  <td>{entry.user?.username ?? 'Unknown'}</td>
-                  <td>{actionLabel(entry.action)}</td>
-                  <td>{entry.model_name} <span style={{ color: 'var(--ink-soft)' }}>· {entry.object_id.slice(0, 8)}</span></td>
-                  <td>
+                  <td data-label="When" className="tnum">{DATE_TIME_FMT.format(new Date(entry.created_at))}</td>
+                  <td data-label="User">{entry.user?.username ?? 'Unknown'}</td>
+                  <td data-label="Action">{actionLabel(entry.action)}</td>
+                  <td data-label="Record">{entry.model_name} <span style={{ color: 'var(--ink-soft)' }}>· {entry.object_id.slice(0, 8)}</span></td>
+                  <td data-label="Changes">
                     {Object.keys(entry.changes).length === 0 ? '—' : (
                       <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12 }}>
                         {Object.entries(entry.changes).map(([field, [before, after]]) => (

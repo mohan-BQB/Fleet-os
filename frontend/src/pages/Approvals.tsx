@@ -170,7 +170,7 @@ export default function Approvals() {
         </div>
 
         <section className="table-card" style={{ marginTop: 14 }}>
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr><th>Date</th><th>Type</th><th>Vehicle</th><th>Description</th><th>Amount</th><th></th></tr>
@@ -178,15 +178,15 @@ export default function Approvals() {
               <tbody>
                 {rows.map((row) => (
                   <tr key={`${row.kind}:${row.id}`}>
-                    <td className="tnum">{DATE_FMT.format(new Date(row.date))}</td>
-                    <td>{KIND_LABELS[row.kind]}</td>
-                    <td className="reg-no">
+                    <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(row.date))}</td>
+                    <td data-label="Type">{KIND_LABELS[row.kind]}</td>
+                    <td data-label="Vehicle" className="reg-no">
                       {row.kind === 'expense' && vehicleName(row.exp.vehicle)}
                       {row.kind === 'fuel' && vehicleName(row.log.vehicle)}
                       {row.kind === 'trip_sheet' && vehicleName(row.ts.vehicle)}
                       {row.kind === 'compliance' && row.doc.holder_display}
                     </td>
-                    <td>
+                    <td data-label="Description">
                       {row.kind === 'expense' && headName(row.exp.expense_head)}
                       {row.kind === 'fuel' && `${Number(row.log.litres).toLocaleString('en-IN')} L · ${driverName(row.log.driver)}`}
                       {row.kind === 'trip_sheet' && (
@@ -198,13 +198,13 @@ export default function Approvals() {
                         `${humanize(row.doc.doc_type)}${row.doc.is_expired ? ' (expired)' : ' (due soon)'}`
                       )}
                     </td>
-                    <td className="tnum">
+                    <td data-label="Amount" className="tnum">
                       {row.kind === 'expense' && CURRENCY.format(Number(row.exp.amount))}
                       {row.kind === 'fuel' && CURRENCY.format(Number(row.log.amount))}
                       {row.kind === 'trip_sheet' && CURRENCY.format(Number(row.ts.total_freight))}
                       {row.kind === 'compliance' && '—'}
                     </td>
-                    <td>
+                    <td data-label="">
                       <div className="row-actions">
                         {row.kind === 'expense' && canDecideExpense && (
                           <>

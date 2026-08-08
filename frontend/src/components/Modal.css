@@ -89,6 +89,12 @@
   .side-panel { width: 100vw; min-width: 0; max-width: none; }
 }
 
+@media (max-width: 640px) {
+  .modal-backdrop { padding: 0; }
+  .modal-panel { max-width: none; min-height: 100vh; border-radius: 0; border: none; }
+  .form-grid { grid-template-columns: 1fr; }
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

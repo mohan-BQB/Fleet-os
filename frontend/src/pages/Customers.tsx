@@ -57,7 +57,7 @@ export default function Customers() {
         {error && <div className="error-banner">{error}</div>}
 
         <section className="table-card">
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr>
@@ -72,7 +72,7 @@ export default function Customers() {
               <tbody>
                 {customers?.map((c) => (
                   <tr key={c.id}>
-                    <td>
+                    <td data-label="Customer">
                       <button
                         type="button"
                         className="veh-cell btn-reset"
@@ -82,11 +82,11 @@ export default function Customers() {
                         <div className="reg-no" style={{ fontFamily: 'inherit' }}>{c.name}</div>
                       </button>
                     </td>
-                    <td>{c.contact_person || '—'}</td>
-                    <td>{c.mobile || '—'}</td>
-                    <td>{c.gstin || '—'}</td>
-                    <td><span className={`pill ${c.status === 'active' ? 'on' : 'off'}`}>{humanize(c.status)}</span></td>
-                    <td>
+                    <td data-label="Contact">{c.contact_person || '—'}</td>
+                    <td data-label="Mobile">{c.mobile || '—'}</td>
+                    <td data-label="GSTIN">{c.gstin || '—'}</td>
+                    <td data-label="Status"><span className={`pill ${c.status === 'active' ? 'on' : 'off'}`}>{humanize(c.status)}</span></td>
+                    <td data-label="">
                       <div className="row-actions">
                         <button className="link-btn" onClick={() => { setEditing(c); setShowForm(true); }}>Edit</button>
                         {c.status === 'active' && (

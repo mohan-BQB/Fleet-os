@@ -92,7 +92,7 @@ export default function VehicleEmi() {
         </div>
 
         <section className="table-card">
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr><th>Vehicle</th><th>Due date</th><th>Amount</th><th>Status</th><th></th></tr>
@@ -101,17 +101,17 @@ export default function VehicleEmi() {
                 {rows?.map((inst) => (
                   <Fragment key={inst.id}>
                     <tr>
-                      <td className="reg-no">{inst.registration_number}</td>
-                      <td className="tnum">{DATE_FMT.format(new Date(inst.due_date))}</td>
-                      <td className="tnum">{CURRENCY.format(Number(inst.amount))}</td>
-                      <td>
+                      <td data-label="Vehicle" className="reg-no">{inst.registration_number}</td>
+                      <td data-label="Due date" className="tnum">{DATE_FMT.format(new Date(inst.due_date))}</td>
+                      <td data-label="Amount" className="tnum">{CURRENCY.format(Number(inst.amount))}</td>
+                      <td data-label="Status">
                         {inst.paid
                           ? <span className="pill on">Paid{inst.paid_date ? ` · ${DATE_FMT.format(new Date(inst.paid_date))}` : ''}</span>
                           : inst.is_overdue
                             ? <span className="pill off" style={{ background: 'var(--critical-soft)', color: 'var(--critical)' }}>Overdue</span>
                             : <span className="pill svc">Upcoming</span>}
                       </td>
-                      <td>
+                      <td data-label="">
                         {!inst.paid && (
                           <button className="link-btn" onClick={() => setPayingId(payingId === inst.id ? null : inst.id)}>
                             Mark paid
@@ -121,7 +121,7 @@ export default function VehicleEmi() {
                     </tr>
                     {payingId === inst.id && (
                       <tr>
-                        <td colSpan={5} style={{ background: 'var(--paper)' }}>
+                        <td data-label="" colSpan={5} style={{ background: 'var(--paper)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', flexWrap: 'wrap' }}>
                             <input type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)}
                               style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)' }} />

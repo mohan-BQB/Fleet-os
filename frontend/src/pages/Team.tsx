@@ -83,7 +83,7 @@ export default function Team() {
         {error && <div className="error-banner">{error}</div>}
 
         <section className="table-card">
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr>
@@ -91,11 +91,11 @@ export default function Team() {
               <tbody>
                 {users?.map((u) => (
                   <tr key={u.id}>
-                    <td>{u.username}</td>
-                    <td>{u.email || '—'}</td>
-                    <td>{roleLabel(u.role)}</td>
-                    <td><span className={`pill ${u.is_active ? 'on' : 'off'}`}>{u.is_active ? 'Active' : 'Inactive'}</span></td>
-                    <td>
+                    <td data-label="Username">{u.username}</td>
+                    <td data-label="Email">{u.email || '—'}</td>
+                    <td data-label="Role">{roleLabel(u.role)}</td>
+                    <td data-label="Status"><span className={`pill ${u.is_active ? 'on' : 'off'}`}>{u.is_active ? 'Active' : 'Inactive'}</span></td>
+                    <td data-label="">
                       <div className="row-actions">
                         <button className="link-btn" onClick={() => setPermissionsUser(u)}>Permissions</button>
                         <button className={`link-btn ${u.is_active ? 'danger' : ''}`} onClick={() => handleToggleActive(u)}>

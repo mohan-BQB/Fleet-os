@@ -164,15 +164,15 @@ export default function FuelLogPage() {
               <h3>Vehicle mileage</h3>
               <span style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>Full tank to full tank</span>
             </div>
-            <div className="table-scroll">
+            <div className="table-scroll responsive">
               <table>
                 <thead><tr><th>Vehicle</th><th>Mileage</th><th>Based on</th></tr></thead>
                 <tbody>
                   {vehicleMileage.map((m) => (
                     <tr key={m.vehicleId}>
-                      <td className="reg-no">{vehicleName(m.vehicleId)}</td>
-                      <td className="tnum">{m.mileage.toFixed(2)} km/l</td>
-                      <td>{m.intervalCount} interval{m.intervalCount === 1 ? '' : 's'}</td>
+                      <td data-label="Vehicle" className="reg-no">{vehicleName(m.vehicleId)}</td>
+                      <td data-label="Mileage" className="tnum">{m.mileage.toFixed(2)} km/l</td>
+                      <td data-label="Based on">{m.intervalCount} interval{m.intervalCount === 1 ? '' : 's'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -182,7 +182,7 @@ export default function FuelLogPage() {
         )}
 
         <section className="table-card">
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr>
@@ -193,21 +193,21 @@ export default function FuelLogPage() {
               <tbody>
                 {logs?.map((log) => (
                   <tr key={log.id}>
-                    <td className="reg-no">{vehicleName(log.vehicle)}</td>
-                    <td>{driverName(log.driver)}</td>
-                    <td>{log.filled_by || '—'}</td>
-                    <td><ApprovalStatusPill label={STATUS_LABEL[log.status]} tone={STATUS_TONE[log.status]} /></td>
-                    <td className="tnum">{DATE_FMT.format(new Date(log.date))}</td>
-                    <td className="tnum">{Number(log.litres).toLocaleString('en-IN')} L</td>
-                    <td className="tnum">₹{Number(log.rate_per_litre).toFixed(2)}</td>
-                    <td className="tnum">₹{Number(log.amount).toLocaleString('en-IN')}</td>
-                    <td className="tnum">{log.odometer ? Number(log.odometer).toLocaleString('en-IN') : '—'}</td>
-                    <td className="tnum">
+                    <td data-label="Vehicle" className="reg-no">{vehicleName(log.vehicle)}</td>
+                    <td data-label="Driver">{driverName(log.driver)}</td>
+                    <td data-label="Filled by">{log.filled_by || '—'}</td>
+                    <td data-label="Status"><ApprovalStatusPill label={STATUS_LABEL[log.status]} tone={STATUS_TONE[log.status]} /></td>
+                    <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(log.date))}</td>
+                    <td data-label="Litres" className="tnum">{Number(log.litres).toLocaleString('en-IN')} L</td>
+                    <td data-label="Rate" className="tnum">₹{Number(log.rate_per_litre).toFixed(2)}</td>
+                    <td data-label="Amount" className="tnum">₹{Number(log.amount).toLocaleString('en-IN')}</td>
+                    <td data-label="Odometer" className="tnum">{log.odometer ? Number(log.odometer).toLocaleString('en-IN') : '—'}</td>
+                    <td data-label="Mileage" className="tnum">
                       {mileageIntervals.get(log.id) ? `${mileageIntervals.get(log.id)!.mileage.toFixed(2)} km/l` : '—'}
                     </td>
-                    <td>{vendorName(log.fuel_station)}</td>
-                    <td>{enteredByName(log.created_by)}</td>
-                    <td>
+                    <td data-label="Station">{vendorName(log.fuel_station)}</td>
+                    <td data-label="Entered by">{enteredByName(log.created_by)}</td>
+                    <td data-label="Payment">
                       {log.is_paid === null ? '—' : log.is_paid ? (
                         <span className="pill on">Paid</span>
                       ) : (
@@ -216,7 +216,7 @@ export default function FuelLogPage() {
                         </button>
                       )}
                     </td>
-                    <td>
+                    <td data-label="">
                       <div className="row-actions">
                         {log.status === 'draft' && (
                           <>

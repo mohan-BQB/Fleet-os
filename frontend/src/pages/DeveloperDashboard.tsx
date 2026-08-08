@@ -98,7 +98,7 @@ export default function DeveloperDashboard() {
               {triggering ? 'Running…' : 'Run check_compliance now'}
             </button>
           </div>
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr><th>Job</th><th>Started</th><th>Status</th><th>Triggered by</th><th>Summary</th></tr>
@@ -106,11 +106,11 @@ export default function DeveloperDashboard() {
               <tbody>
                 {jobRuns?.map((run) => (
                   <tr key={run.id}>
-                    <td>{run.job_name}</td>
-                    <td className="tnum">{DATE_TIME_FMT.format(new Date(run.started_at))}</td>
-                    <td><span className={`pill ${run.status === 'success' ? 'on' : run.status === 'failed' ? 'off' : 'svc'}`}>{statusLabel(run.status)}</span></td>
-                    <td>{run.triggered_by_username ?? 'cron/CLI'}</td>
-                    <td>{run.summary || '—'}</td>
+                    <td data-label="Job">{run.job_name}</td>
+                    <td data-label="Started" className="tnum">{DATE_TIME_FMT.format(new Date(run.started_at))}</td>
+                    <td data-label="Status"><span className={`pill ${run.status === 'success' ? 'on' : run.status === 'failed' ? 'off' : 'svc'}`}>{statusLabel(run.status)}</span></td>
+                    <td data-label="Triggered by">{run.triggered_by_username ?? 'cron/CLI'}</td>
+                    <td data-label="Summary">{run.summary || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -124,7 +124,7 @@ export default function DeveloperDashboard() {
             <h3>API keys</h3>
             <button className="btn primary" onClick={() => setShowKeyForm(true)}>+ New key</button>
           </div>
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr><th>Name</th><th>Prefix</th><th>Created</th><th>Last used</th><th></th></tr>
@@ -132,11 +132,11 @@ export default function DeveloperDashboard() {
               <tbody>
                 {apiKeys?.map((key) => (
                   <tr key={key.id}>
-                    <td>{key.name}</td>
-                    <td className="tnum">{key.prefix}…</td>
-                    <td className="tnum">{DATE_TIME_FMT.format(new Date(key.created_at))}</td>
-                    <td className="tnum">{key.last_used_at ? DATE_TIME_FMT.format(new Date(key.last_used_at)) : 'Never'}</td>
-                    <td>
+                    <td data-label="Name">{key.name}</td>
+                    <td data-label="Prefix" className="tnum">{key.prefix}…</td>
+                    <td data-label="Created" className="tnum">{DATE_TIME_FMT.format(new Date(key.created_at))}</td>
+                    <td data-label="Last used" className="tnum">{key.last_used_at ? DATE_TIME_FMT.format(new Date(key.last_used_at)) : 'Never'}</td>
+                    <td data-label="">
                       <div className="row-actions">
                         <button className="link-btn danger" onClick={() => handleRevoke(key)}>Revoke</button>
                       </div>
@@ -151,7 +151,7 @@ export default function DeveloperDashboard() {
 
         <section className="table-card">
           <div className="table-head"><h3>Recent activity, all organizations</h3></div>
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr><th>When</th><th>Organization</th><th>User</th><th>Action</th><th>Record</th></tr>
@@ -159,11 +159,11 @@ export default function DeveloperDashboard() {
               <tbody>
                 {health?.recent_audit_log.map((entry) => (
                   <tr key={entry.id}>
-                    <td className="tnum">{DATE_TIME_FMT.format(new Date(entry.created_at))}</td>
-                    <td>{entry.organization_name ?? '—'}</td>
-                    <td>{entry.user?.username ?? 'Unknown'}</td>
-                    <td>{entry.action}</td>
-                    <td>{entry.model_name}</td>
+                    <td data-label="When" className="tnum">{DATE_TIME_FMT.format(new Date(entry.created_at))}</td>
+                    <td data-label="Organization">{entry.organization_name ?? '—'}</td>
+                    <td data-label="User">{entry.user?.username ?? 'Unknown'}</td>
+                    <td data-label="Action">{entry.action}</td>
+                    <td data-label="Record">{entry.model_name}</td>
                   </tr>
                 ))}
               </tbody>

@@ -58,7 +58,7 @@ export default function Vendors() {
         {error && <div className="error-banner">{error}</div>}
 
         <section className="table-card">
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr>
@@ -74,7 +74,7 @@ export default function Vendors() {
               <tbody>
                 {vendors?.map((v) => (
                   <tr key={v.id}>
-                    <td>
+                    <td data-label="Vendor">
                       <button
                         type="button"
                         className="veh-cell btn-reset"
@@ -84,12 +84,12 @@ export default function Vendors() {
                         <div className="reg-no" style={{ fontFamily: 'inherit' }}>{v.name}</div>
                       </button>
                     </td>
-                    <td>{humanize(v.vendor_type)}</td>
-                    <td>{v.contact_person || '—'}</td>
-                    <td>{v.mobile || '—'}</td>
-                    <td>{v.gstin || '—'}</td>
-                    <td><span className={`pill ${v.status === 'active' ? 'on' : 'off'}`}>{humanize(v.status)}</span></td>
-                    <td>
+                    <td data-label="Type">{humanize(v.vendor_type)}</td>
+                    <td data-label="Contact">{v.contact_person || '—'}</td>
+                    <td data-label="Mobile">{v.mobile || '—'}</td>
+                    <td data-label="GSTIN">{v.gstin || '—'}</td>
+                    <td data-label="Status"><span className={`pill ${v.status === 'active' ? 'on' : 'off'}`}>{humanize(v.status)}</span></td>
+                    <td data-label="">
                       <div className="row-actions">
                         <button className="link-btn" onClick={() => { setEditing(v); setShowForm(true); }}>Edit</button>
                         {v.status === 'active' && (

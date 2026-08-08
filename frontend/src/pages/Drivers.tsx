@@ -83,7 +83,7 @@ export default function Drivers() {
         {error && <div className="error-banner">{error}</div>}
 
         <section className="table-card">
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr>
@@ -99,7 +99,7 @@ export default function Drivers() {
               <tbody>
                 {drivers?.map((d) => (
                   <tr key={d.id}>
-                    <td>
+                    <td data-label="Driver">
                       <button
                         type="button"
                         className="veh-cell"
@@ -113,16 +113,16 @@ export default function Drivers() {
                         </div>
                       </button>
                     </td>
-                    <td>{d.mobile || '—'}</td>
-                    <td>{d.licence_number || '—'}</td>
-                    <td className="tnum">{d.licence_valid_till ? DATE_FMT.format(new Date(d.licence_valid_till)) : '—'}</td>
-                    <td>
+                    <td data-label="Mobile">{d.mobile || '—'}</td>
+                    <td data-label="Licence">{d.licence_number || '—'}</td>
+                    <td data-label="Licence valid till" className="tnum">{d.licence_valid_till ? DATE_FMT.format(new Date(d.licence_valid_till)) : '—'}</td>
+                    <td data-label="Wage">
                       {d.wage_basis === 'per_trip'
                         ? 'Per trip (set on each trip)'
                         : d.wage_amount ? `₹${Number(d.wage_amount).toLocaleString('en-IN')} / ${humanize(d.wage_basis).toLowerCase()}` : '—'}
                     </td>
-                    <td><span className={`pill ${d.status === 'active' ? 'on' : d.status === 'on_leave' ? 'svc' : 'off'}`}>{humanize(d.status)}</span></td>
-                    <td>
+                    <td data-label="Status"><span className={`pill ${d.status === 'active' ? 'on' : d.status === 'on_leave' ? 'svc' : 'off'}`}>{humanize(d.status)}</span></td>
+                    <td data-label="">
                       <div className="row-actions">
                         <button className="link-btn" onClick={() => setComplianceDriver(d)}>Compliance</button>
                         <button className="link-btn" onClick={() => { setEditing(d); setShowForm(true); }}>Edit</button>

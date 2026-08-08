@@ -105,7 +105,7 @@ export default function TripSheets() {
         {error && <div className="error-banner">{error}</div>}
 
         <section className="table-card">
-          <div className="table-scroll">
+          <div className="table-scroll responsive">
             <table>
               <thead>
                 <tr>
@@ -124,26 +124,26 @@ export default function TripSheets() {
               <tbody>
                 {tripSheets?.map((ts) => (
                   <tr key={ts.id}>
-                    <td className="reg-no">{ts.trip_no || '—'}</td>
-                    <td className="reg-no">{vehicleName(ts.vehicle)}</td>
-                    <td>{driverName(ts.driver)}</td>
-                    <td className="tnum">{DATE_FMT.format(new Date(ts.date))}</td>
-                    <td className="tnum">{ts.distance_covered ? `${Number(ts.distance_covered).toLocaleString('en-IN')} km` : '—'}</td>
-                    <td className="tnum">₹{Number(ts.total_freight).toLocaleString('en-IN')}</td>
-                    <td className="tnum">{ts.wage_amount ? `₹${Number(ts.wage_amount).toLocaleString('en-IN')}` : '—'}</td>
-                    <td>
+                    <td data-label="Trip no." className="reg-no">{ts.trip_no || '—'}</td>
+                    <td data-label="Vehicle" className="reg-no">{vehicleName(ts.vehicle)}</td>
+                    <td data-label="Driver">{driverName(ts.driver)}</td>
+                    <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(ts.date))}</td>
+                    <td data-label="Distance" className="tnum">{ts.distance_covered ? `${Number(ts.distance_covered).toLocaleString('en-IN')} km` : '—'}</td>
+                    <td data-label="Freight" className="tnum">₹{Number(ts.total_freight).toLocaleString('en-IN')}</td>
+                    <td data-label="Driver wage" className="tnum">{ts.wage_amount ? `₹${Number(ts.wage_amount).toLocaleString('en-IN')}` : '—'}</td>
+                    <td data-label="Money box">
                       {Number(ts.total_advance) > 0 || ts.trip_expenses.length > 0 ? (
                         <span className={`pill ${ts.is_reconciled ? 'on' : 'svc'}`}>
                           {ts.is_reconciled ? 'Balanced' : `${CURRENCY.format(Math.abs(Number(ts.reconciliation_variance)))} unaccounted`}
                         </span>
                       ) : '—'}
                     </td>
-                    <td>
+                    <td data-label="Status">
                       <span className={`pill ${ts.status === 'approved' || ts.status === 'closed' ? 'on' : ts.status === 'cancelled' ? 'off' : 'svc'}`}>
                         {statusLabel(ts.status)}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="">
                       <div className="row-actions">
                         <button className="link-btn" onClick={() => setDetail(ts)}>
                           {ACTIVE_STATUSES.has(ts.status) ? 'Manage' : 'View'}
@@ -838,7 +838,7 @@ function TripSheetDetail({
         <>
           <section className="table-card" style={{ boxShadow: 'none', marginTop: 16 }}>
             <div className="table-head"><h3>Legs</h3></div>
-            <div className="table-scroll">
+            <div className="table-scroll responsive">
               <table>
                 <thead>
                   <tr><th>#</th><th>From</th><th>To</th><th>Status</th><th>Customer</th><th>Material</th><th>Distance</th><th>Freight</th></tr>
@@ -846,14 +846,14 @@ function TripSheetDetail({
                 <tbody>
                   {tripSheet.legs.map((leg) => (
                     <tr key={leg.id}>
-                      <td>{leg.sequence}</td>
-                      <td>{leg.from_place}</td>
-                      <td>{leg.to_place}</td>
-                      <td>{leg.load_status ? <span className={`pill ${leg.load_status === 'loaded' ? 'on' : 'off'}`}>{humanize(leg.load_status)}</span> : '—'}</td>
-                      <td>{customerName_(leg.customer)}</td>
-                      <td>{leg.material || '—'}</td>
-                      <td className="tnum">{leg.distance_km ? `${Number(leg.distance_km).toLocaleString('en-IN')} km` : '—'}</td>
-                      <td className="tnum">₹{Number(leg.freight_amount).toLocaleString('en-IN')}</td>
+                      <td data-label="#">{leg.sequence}</td>
+                      <td data-label="From">{leg.from_place}</td>
+                      <td data-label="To">{leg.to_place}</td>
+                      <td data-label="Status">{leg.load_status ? <span className={`pill ${leg.load_status === 'loaded' ? 'on' : 'off'}`}>{humanize(leg.load_status)}</span> : '—'}</td>
+                      <td data-label="Customer">{customerName_(leg.customer)}</td>
+                      <td data-label="Material">{leg.material || '—'}</td>
+                      <td data-label="Distance" className="tnum">{leg.distance_km ? `${Number(leg.distance_km).toLocaleString('en-IN')} km` : '—'}</td>
+                      <td data-label="Freight" className="tnum">₹{Number(leg.freight_amount).toLocaleString('en-IN')}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -967,7 +967,7 @@ function TripSheetDetail({
         <>
           <section className="table-card" style={{ boxShadow: 'none', marginTop: 16 }}>
             <div className="table-head"><h3>Work items</h3></div>
-            <div className="table-scroll">
+            <div className="table-scroll responsive">
               <table>
                 <thead>
                   <tr><th>#</th><th>Site</th><th>Customer</th><th>Work</th><th>Qty</th><th>Rate</th><th>Amount</th><th></th></tr>
@@ -975,14 +975,14 @@ function TripSheetDetail({
                 <tbody>
                   {tripSheet.work_items.map((item) => (
                     <tr key={item.id}>
-                      <td>{item.sequence}</td>
-                      <td>{item.site || '—'}</td>
-                      <td>{customerName_(item.customer)}</td>
-                      <td>{item.work_type} <span style={{ color: 'var(--ink-soft)', fontSize: 11 }}>({humanize(item.basis)})</span></td>
-                      <td className="tnum">{item.qty}{item.overtime_qty && ` (+${item.overtime_qty} OT)`}</td>
-                      <td className="tnum">₹{Number(item.rate).toLocaleString('en-IN')}</td>
-                      <td className="tnum">₹{Number(item.amount).toLocaleString('en-IN')}</td>
-                      <td>{isActive && <button className="link-btn danger" onClick={() => handleRemoveWorkItem(item.id)}>Remove</button>}</td>
+                      <td data-label="#">{item.sequence}</td>
+                      <td data-label="Site">{item.site || '—'}</td>
+                      <td data-label="Customer">{customerName_(item.customer)}</td>
+                      <td data-label="Work">{item.work_type} <span style={{ color: 'var(--ink-soft)', fontSize: 11 }}>({humanize(item.basis)})</span></td>
+                      <td data-label="Qty" className="tnum">{item.qty}{item.overtime_qty && ` (+${item.overtime_qty} OT)`}</td>
+                      <td data-label="Rate" className="tnum">₹{Number(item.rate).toLocaleString('en-IN')}</td>
+                      <td data-label="Amount" className="tnum">₹{Number(item.amount).toLocaleString('en-IN')}</td>
+                      <td data-label="">{isActive && <button className="link-btn danger" onClick={() => handleRemoveWorkItem(item.id)}>Remove</button>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1117,17 +1117,17 @@ function TripSheetDetail({
           <h3 style={{ fontSize: 12.5 }}>Advances</h3>
           {isActive && <button type="button" className="link-btn" onClick={() => setShowAdvanceForm((s) => !s)}>+ Add advance</button>}
         </div>
-        <div className="table-scroll">
+        <div className="table-scroll responsive">
           <table>
             <thead><tr><th>Date</th><th>Given by</th><th>Amount</th><th>Mode</th><th></th></tr></thead>
             <tbody>
               {tripSheet.advances.map((a) => (
                 <tr key={a.id}>
-                  <td className="tnum">{DATE_FMT.format(new Date(a.date))}</td>
-                  <td>{a.given_by || '—'}</td>
-                  <td className="tnum">{CURRENCY.format(Number(a.amount))}</td>
-                  <td>{a.payment_mode ? humanize(a.payment_mode) : '—'}</td>
-                  <td>{isActive && <button className="link-btn danger" onClick={() => handleRemoveAdvance(a.id)}>Remove</button>}</td>
+                  <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(a.date))}</td>
+                  <td data-label="Given by">{a.given_by || '—'}</td>
+                  <td data-label="Amount" className="tnum">{CURRENCY.format(Number(a.amount))}</td>
+                  <td data-label="Mode">{a.payment_mode ? humanize(a.payment_mode) : '—'}</td>
+                  <td data-label="">{isActive && <button className="link-btn danger" onClick={() => handleRemoveAdvance(a.id)}>Remove</button>}</td>
                 </tr>
               ))}
             </tbody>
@@ -1177,18 +1177,18 @@ function TripSheetDetail({
           <h3 style={{ fontSize: 12.5 }}>Expenses</h3>
           {isActive && <button type="button" className="link-btn" onClick={() => setShowExpenseForm((s) => !s)}>+ Add expense</button>}
         </div>
-        <div className="table-scroll">
+        <div className="table-scroll responsive">
           <table>
             <thead><tr><th>Date</th><th>Expense head</th><th>Paid from</th><th>Amount</th><th>Vendor</th><th></th></tr></thead>
             <tbody>
               {tripSheet.trip_expenses.map((exp) => (
                 <tr key={exp.id}>
-                  <td className="tnum">{DATE_FMT.format(new Date(exp.date))}</td>
-                  <td>{expenseHeads.find((h) => h.id === exp.expense_head)?.name ?? '—'}</td>
-                  <td>{humanize(exp.paid_from)}</td>
-                  <td className="tnum">{CURRENCY.format(Number(exp.amount))}</td>
-                  <td>{exp.vendor ? (vendors.find((v) => v.id === exp.vendor)?.name ?? '—') : '—'}</td>
-                  <td>{isActive && <button className="link-btn danger" onClick={() => handleRemoveExpense(exp.id)}>Remove</button>}</td>
+                  <td data-label="Date" className="tnum">{DATE_FMT.format(new Date(exp.date))}</td>
+                  <td data-label="Expense head">{expenseHeads.find((h) => h.id === exp.expense_head)?.name ?? '—'}</td>
+                  <td data-label="Paid from">{humanize(exp.paid_from)}</td>
+                  <td data-label="Amount" className="tnum">{CURRENCY.format(Number(exp.amount))}</td>
+                  <td data-label="Vendor">{exp.vendor ? (vendors.find((v) => v.id === exp.vendor)?.name ?? '—') : '—'}</td>
+                  <td data-label="">{isActive && <button className="link-btn danger" onClick={() => handleRemoveExpense(exp.id)}>Remove</button>}</td>
                 </tr>
               ))}
             </tbody>
